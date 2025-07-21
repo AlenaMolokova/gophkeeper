@@ -96,6 +96,8 @@ func executeWithConnection(operation func(context.Context, clientapi.GophKeeperC
 	}
 }
 
+
+
 // handleAuthCommand handles register and login commands with common logic.
 func handleAuthCommand(command string) {
 	cmd := flag.NewFlagSet(command, flag.ExitOnError)
