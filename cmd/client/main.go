@@ -96,43 +96,6 @@ func executeWithConnection(operation func(context.Context, clientapi.GophKeeperC
 	}
 }
 
-
-
-// handleAuthCommand handles register and login commands with common logic.
-func handleAuthCommand(command string) {
-	cmd := flag.NewFlagSet(command, flag.ExitOnError)
-	email := cmd.String("email", "", "User email")
-	password := cmd.String("password", "", "User password")
-	if err := cmd.Parse(os.Args[2:]); err != nil {
-		log.Fatalf("Failed to parse flags: %v", err)
-	}
-
-	if *email == "" || *password == "" {
-		fmt.Printf("Example: gophkeeper %s --email user@example.com --password secret\n", command)
-		os.Exit(1)
-	}
-
-	executeWithConnection(func(ctx context.Context, client clientapi.GophKeeperClient) error {
-		var token string
-		var err error
-		switch command {
-		case "register":
-			token, err = clientapplogic.RegisterUser(ctx, client, *email, *password)
-			if err != nil {
-				return fmt.Errorf("registration failed: %w", err)
-			}
-			fmt.Printf("User successfully registered. JWT: %s\n", token)
-		case "login":
-			token, err = clientapplogic.LoginUser(ctx, client, *email, *password)
-			if err != nil {
-				return fmt.Errorf("login failed: %w", err)
-			}
-			fmt.Printf("Login successful. JWT: %s\n", token)
-		}
-		return nil
-	})
-}
-
 // main is the entry point for the GophKeeper CLI client.
 func main() {
 	if len(os.Args) < 2 {
