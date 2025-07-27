@@ -26,11 +26,12 @@ import (
 	clientcrypto "github.com/AlenaMolokova/gophkeeper/internal/client/crypto"
 	clientsync "github.com/AlenaMolokova/gophkeeper/internal/client/sync"
 	clienttui "github.com/AlenaMolokova/gophkeeper/internal/client/tui"
+	"github.com/AlenaMolokova/gophkeeper/internal/config"
 	clientapi "github.com/AlenaMolokova/gophkeeper/pkg/client/api"
 )
 
 var (
-	// Version holds the current version of the application.
+	// Version holds the version of the application.
 	Version = "dev"
 	// BuildDate holds the build date of the application.
 	BuildDate = "unknown"
@@ -40,7 +41,8 @@ var (
 
 // init initializes global flags.
 func init() {
-	flag.StringVar(&certPath, "cert", os.Getenv("GOPHKEEPER_CERT"), "Path to the server TLS certificate")
+	clientConfig := config.NewClientConfig()
+	flag.StringVar(&certPath, "cert", clientConfig.CertPath, "Path to the server TLS certificate")
 	flag.Parse()
 }
 
@@ -60,68 +62,75 @@ func loadTLSConfig(certPath string) (credentials.TransportCredentials, error) {
 	return creds, nil
 }
 
+// ClientConnections holds both user and data service connections.
+type ClientConnections struct {
+	UserClient clientapi.UserServiceClient
+	DataClient clientapi.DataServiceClient
+	Conn       *grpc.ClientConn
+}
+
 // connectToServer establishes a connection to the gRPC server.
-// It returns the client and connection, or an error if connection fails.
-func connectToServer() (clientapi.GophKeeperClient, *grpc.ClientConn, error) {
+// It returns the clients and connection, or an error if connection fails.
+func connectToServer() (*ClientConnections, error) {
 	creds, err := loadTLSConfig(certPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load TLS certificate: %w", err)
+		return nil, fmt.Errorf("failed to load TLS certificate: %w", err)
 	}
 
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(creds))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to server: %w", err)
+		return nil, fmt.Errorf("failed to connect to server: %w", err)
 	}
 
-	client := clientapi.NewGophKeeperClient(conn)
-	return client, conn, nil
+	clients := &ClientConnections{
+		UserClient: clientapi.NewUserServiceClient(conn),
+		DataClient: clientapi.NewDataServiceClient(conn),
+		Conn:       conn,
+	}
+	return clients, nil
 }
 
-// executeWithConnection executes a function with a server connection.
+// executeWithConnection executes a function with server connections.
 // It handles connection setup, cleanup, and error handling properly.
-func executeWithConnection(operation func(context.Context, clientapi.GophKeeperClient) error) {
-	client, conn, err := connectToServer()
+func executeWithConnection(operation func(context.Context, *ClientConnections) error) error {
+	clients, err := connectToServer()
 	if err != nil {
-		log.Printf("Failed to connect: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect: %w", err)
 	}
-	defer conn.Close()
+	defer clients.Conn.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := operation(ctx, client); err != nil {
-		log.Printf("Operation failed: %v", err)
-		os.Exit(1)
-	}
+	return operation(ctx, clients)
 }
 
 // handleAuthCommand handles register and login commands with common logic.
-func handleAuthCommand(command string) {
+func handleAuthCommand(command string) error {
 	cmd := flag.NewFlagSet(command, flag.ExitOnError)
 	email := cmd.String("email", "", "User email")
 	password := cmd.String("password", "", "User password")
 	if err := cmd.Parse(os.Args[2:]); err != nil {
-		log.Fatalf("Failed to parse flags: %v", err)
+		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
 	if *email == "" || *password == "" {
 		fmt.Printf("Example: gophkeeper %s --email user@example.com --password secret\n", command)
-		os.Exit(1)
+		return fmt.Errorf("email and password are required")
 	}
 
-	executeWithConnection(func(ctx context.Context, client clientapi.GophKeeperClient) error {
+	return executeWithConnection(func(ctx context.Context, clients *ClientConnections) error {
 		var token string
 		var err error
 		switch command {
 		case "register":
-			token, err = clientapplogic.RegisterUser(ctx, client, *email, *password)
+			token, err = clientapplogic.RegisterUser(ctx, clients.UserClient, *email, *password)
 			if err != nil {
 				return fmt.Errorf("registration failed: %w", err)
 			}
 			fmt.Printf("User successfully registered. JWT: %s\n", token)
 		case "login":
-			token, err = clientapplogic.LoginUser(ctx, client, *email, *password)
+			token, err = clientapplogic.LoginUser(ctx, clients.UserClient, *email, *password)
 			if err != nil {
 				return fmt.Errorf("login failed: %w", err)
 			}
@@ -131,156 +140,199 @@ func handleAuthCommand(command string) {
 	})
 }
 
+// handleAddCommand handles the add data command.
+func handleAddCommand() error {
+	addCmd := flag.NewFlagSet("add", flag.ExitOnError)
+	token := addCmd.String("token", "", "JWT token")
+	type_ := addCmd.String("type", "", "Data type (login, text, binary, card, otp)")
+	payload := addCmd.String("payload", "", "Data (string, will be converted to []byte)")
+	if err := addCmd.Parse(os.Args[2:]); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	if *token == "" || *type_ == "" || *payload == "" {
+		fmt.Println("Example: gophkeeper add --token <JWT> --type login --payload mysecret")
+		return fmt.Errorf("token, type, and payload are required")
+	}
+
+	return executeWithConnection(func(ctx context.Context, clients *ClientConnections) error {
+		id, err := clientapplogic.AddData(ctx, clients.DataClient, *token, *type_, *payload)
+		if err != nil {
+			return fmt.Errorf("failed to add data: %w", err)
+		}
+		fmt.Printf("Data successfully added. ID: %s\n", id)
+		return nil
+	})
+}
+
+// handleGetCommand handles the get data command.
+func handleGetCommand() error {
+	getCmd := flag.NewFlagSet("get", flag.ExitOnError)
+	token := getCmd.String("token", "", "JWT token")
+	id := getCmd.String("id", "", "Data ID")
+	if err := getCmd.Parse(os.Args[2:]); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	if *token == "" || *id == "" {
+		fmt.Println("Example: gophkeeper get --token <JWT> --id <data_id>")
+		return fmt.Errorf("token and id are required")
+	}
+
+	return executeWithConnection(func(ctx context.Context, clients *ClientConnections) error {
+		data, decPayload, err := clientapplogic.GetData(ctx, clients.DataClient, *token, *id)
+		if err != nil {
+			return fmt.Errorf("failed to get data: %w", err)
+		}
+		fmt.Printf("Data: ID=%s, Type=%s, Payload=%s, Timestamp=%d\n",
+			data.Id, data.Type, decPayload, data.Timestamp)
+		return nil
+	})
+}
+
+// handleEditCommand handles the edit data command.
+func handleEditCommand() error {
+	editCmd := flag.NewFlagSet("edit", flag.ExitOnError)
+	token := editCmd.String("token", "", "JWT token")
+	id := editCmd.String("id", "", "Data ID")
+	type_ := editCmd.String("type", "", "Data type")
+	payload := editCmd.String("payload", "", "Data (string, will be converted to []byte)")
+	if err := editCmd.Parse(os.Args[2:]); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	if *token == "" || *id == "" || *type_ == "" || *payload == "" {
+		fmt.Println("Example: gophkeeper edit --token <JWT> --id <data_id> --type login --payload newsecret")
+		return fmt.Errorf("token, id, type, and payload are required")
+	}
+
+	return executeWithConnection(func(ctx context.Context, clients *ClientConnections) error {
+		newID, err := clientapplogic.EditData(ctx, clients.DataClient, *token, *id, *type_, *payload)
+		if err != nil {
+			return fmt.Errorf("failed to edit data: %w", err)
+		}
+		fmt.Printf("Data successfully updated. ID: %s\n", newID)
+		return nil
+	})
+}
+
+// handleDeleteCommand handles the delete data command.
+func handleDeleteCommand() error {
+	deleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
+	token := deleteCmd.String("token", "", "JWT token")
+	id := deleteCmd.String("id", "", "Data ID")
+	if err := deleteCmd.Parse(os.Args[2:]); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	if *token == "" || *id == "" {
+		fmt.Println("Example: gophkeeper delete --token <JWT> --id <data_id>")
+		return fmt.Errorf("token and id are required")
+	}
+
+	return executeWithConnection(func(ctx context.Context, clients *ClientConnections) error {
+		if err := clientapplogic.DeleteData(ctx, clients.DataClient, *token, *id); err != nil {
+			return fmt.Errorf("failed to delete data: %w", err)
+		}
+		fmt.Println("Data successfully deleted.")
+		return nil
+	})
+}
+
+// handleInitKeyCommand handles the key initialization command.
+func handleInitKeyCommand() error {
+	key, err := clientcrypto.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("failed to generate key: %w", err)
+	}
+	err = clientcrypto.SaveKey(key)
+	if err != nil {
+		return fmt.Errorf("failed to save key: %w", err)
+	}
+	fmt.Println("Key successfully generated and saved.")
+	return nil
+}
+
+// handleTUICommand handles the TUI command.
+func handleTUICommand() error {
+	return clienttui.RunTUI()
+}
+
+// handleSyncUploadCommand handles the sync upload command.
+func handleSyncUploadCommand() error {
+	syncer, err := clientsync.NewDefaultSyncer()
+	if err != nil {
+		return fmt.Errorf("failed to initialize syncer: %w", err)
+	}
+	if err := syncer.Upload(context.Background()); err != nil {
+		return fmt.Errorf("failed to upload data: %w", err)
+	}
+	fmt.Println("Data upload to server completed.")
+	return nil
+}
+
+// handleSyncDownloadCommand handles the sync download command.
+func handleSyncDownloadCommand() error {
+	syncer, err := clientsync.NewDefaultSyncer()
+	if err != nil {
+		return fmt.Errorf("failed to initialize syncer: %w", err)
+	}
+	if err := syncer.Download(context.Background()); err != nil {
+		return fmt.Errorf("failed to download data: %w", err)
+	}
+	fmt.Println("Data download from server completed.")
+	return nil
+}
+
+// showUsage displays the usage information.
+func showUsage() {
+	fmt.Println("Usage: gophkeeper <command> [parameters]")
+	fmt.Println("Available commands: register, login, add, get, edit, delete, version, tui, sync-upload, sync-download, init-key")
+	fmt.Println("Use --cert to specify TLS certificate path (or set GOPHKEEPER_CERT environment variable)")
+}
+
+// showVersion displays the version information.
+func showVersion() {
+	fmt.Printf("GophKeeper CLI\nVersion: %s\nBuild Date: %s\n", Version, BuildDate)
+}
+
 // main is the entry point for the GophKeeper CLI client.
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: gophkeeper <command> [parameters]")
-		fmt.Println("Available commands: register, login, add, get, edit, delete, version, tui, sync-upload, sync-download, init-key")
-		fmt.Println("Use --cert to specify TLS certificate path (or set GOPHKEEPER_CERT environment variable)")
+		showUsage()
 		os.Exit(1)
 	}
 
+	var err error
 	switch os.Args[1] {
 	case "register", "login":
-		handleAuthCommand(os.Args[1])
-
+		err = handleAuthCommand(os.Args[1])
 	case "init-key":
-		key, err := clientcrypto.GenerateKey()
-		if err != nil {
-			log.Fatalf("Failed to generate key: %v", err)
-		}
-		err = clientcrypto.SaveKey(key)
-		if err != nil {
-			log.Fatalf("Failed to save key: %v", err)
-		}
-		fmt.Println("Key successfully generated and saved.")
-		os.Exit(0)
-
+		err = handleInitKeyCommand()
 	case "add":
-		addCmd := flag.NewFlagSet("add", flag.ExitOnError)
-		token := addCmd.String("token", "", "JWT token")
-		type_ := addCmd.String("type", "", "Data type (login, text, binary, card, otp)")
-		payload := addCmd.String("payload", "", "Data (string, will be converted to []byte)")
-		if err := addCmd.Parse(os.Args[2:]); err != nil {
-			log.Fatalf("Failed to parse flags: %v", err)
-		}
-
-		if *token == "" || *type_ == "" || *payload == "" {
-			fmt.Println("Example: gophkeeper add --token <JWT> --type login --payload mysecret")
-			os.Exit(1)
-		}
-
-		executeWithConnection(func(ctx context.Context, client clientapi.GophKeeperClient) error {
-			id, err := clientapplogic.AddData(ctx, client, *token, *type_, *payload)
-			if err != nil {
-				return fmt.Errorf("failed to add data: %w", err)
-			}
-			fmt.Printf("Data successfully added. ID: %s\n", id)
-			return nil
-		})
-
+		err = handleAddCommand()
 	case "get":
-		getCmd := flag.NewFlagSet("get", flag.ExitOnError)
-		token := getCmd.String("token", "", "JWT token")
-		id := getCmd.String("id", "", "Data ID")
-		if err := getCmd.Parse(os.Args[2:]); err != nil {
-			log.Fatalf("Failed to parse flags: %v", err)
-		}
-
-		if *token == "" || *id == "" {
-			fmt.Println("Example: gophkeeper get --token <JWT> --id <data_id>")
-			os.Exit(1)
-		}
-
-		executeWithConnection(func(ctx context.Context, client clientapi.GophKeeperClient) error {
-			data, decPayload, err := clientapplogic.GetData(ctx, client, *token, *id)
-			if err != nil {
-				return fmt.Errorf("failed to get data: %w", err)
-			}
-			fmt.Printf("Data: ID=%s, Type=%s, Payload=%s, Metadata=%v, Timestamp=%d\n",
-				data.Id, data.Type, decPayload, data.Metadata, data.Timestamp)
-			return nil
-		})
-
+		err = handleGetCommand()
 	case "edit":
-		editCmd := flag.NewFlagSet("edit", flag.ExitOnError)
-		token := editCmd.String("token", "", "JWT token")
-		id := editCmd.String("id", "", "Data ID")
-		type_ := editCmd.String("type", "", "Data type")
-		payload := editCmd.String("payload", "", "Data (string, will be converted to []byte)")
-		if err := editCmd.Parse(os.Args[2:]); err != nil {
-			log.Fatalf("Failed to parse flags: %v", err)
-		}
-
-		if *token == "" || *id == "" || *type_ == "" || *payload == "" {
-			fmt.Println("Example: gophkeeper edit --token <JWT> --id <data_id> --type login --payload newsecret")
-			os.Exit(1)
-		}
-
-		executeWithConnection(func(ctx context.Context, client clientapi.GophKeeperClient) error {
-			newID, err := clientapplogic.EditData(ctx, client, *token, *id, *type_, *payload)
-			if err != nil {
-				return fmt.Errorf("failed to edit data: %w", err)
-			}
-			fmt.Printf("Data successfully updated. ID: %s\n", newID)
-			return nil
-		})
-
+		err = handleEditCommand()
 	case "delete":
-		deleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
-		token := deleteCmd.String("token", "", "JWT token")
-		id := deleteCmd.String("id", "", "Data ID")
-		if err := deleteCmd.Parse(os.Args[2:]); err != nil {
-			log.Fatalf("Failed to parse flags: %v", err)
-		}
-
-		if *token == "" || *id == "" {
-			fmt.Println("Example: gophkeeper delete --token <JWT> --id <data_id>")
-			os.Exit(1)
-		}
-
-		executeWithConnection(func(ctx context.Context, client clientapi.GophKeeperClient) error {
-			if err := clientapplogic.DeleteData(ctx, client, *token, *id); err != nil {
-				return fmt.Errorf("failed to delete data: %w", err)
-			}
-			fmt.Println("Data successfully deleted.")
-			return nil
-		})
-
+		err = handleDeleteCommand()
 	case "version":
-		fmt.Printf("GophKeeper CLI\nVersion: %s\nBuild Date: %s\n", Version, BuildDate)
-		os.Exit(0)
-
+		showVersion()
+		return
 	case "tui":
-		if err := clienttui.RunTUI(); err != nil {
-			log.Fatalf("TUI failed: %v", err)
-		}
-		os.Exit(0)
-
+		err = handleTUICommand()
 	case "sync-upload":
-		syncer, err := clientsync.NewDefaultSyncer()
-		if err != nil {
-			log.Fatalf("Failed to initialize syncer: %v", err)
-		}
-		if err := syncer.Upload(context.Background()); err != nil {
-			log.Fatalf("Failed to upload data: %v", err)
-		}
-		fmt.Println("Data upload to server completed.")
-		os.Exit(0)
-
+		err = handleSyncUploadCommand()
 	case "sync-download":
-		syncer, err := clientsync.NewDefaultSyncer()
-		if err != nil {
-			log.Fatalf("Failed to initialize syncer: %v", err)
-		}
-		if err := syncer.Download(context.Background()); err != nil {
-			log.Fatalf("Failed to download data: %v", err)
-		}
-		fmt.Println("Data download from server completed.")
-		os.Exit(0)
-
+		err = handleSyncDownloadCommand()
 	default:
 		fmt.Println("Unknown command:", os.Args[1])
+		os.Exit(1)
+	}
+
+	if err != nil {
+		log.Printf("Error: %v", err)
 		os.Exit(1)
 	}
 }

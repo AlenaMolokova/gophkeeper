@@ -24,6 +24,9 @@ func EnsureDBDirectory(dbPath string) error {
 	return os.MkdirAll(dir, 0o700)
 }
 
+// Storage provides local data storage using bbolt database.
+// It implements a simple key-value storage system for encrypted data
+// with automatic directory creation and proper file permissions.
 type Storage struct {
 	db *bbolt.DB
 }
@@ -53,6 +56,8 @@ func NewStorage(path string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
+// SaveData stores encrypted data with the given ID.
+// It saves the data to the bbolt database in a transaction-safe manner.
 func (s *Storage) SaveData(id string, data []byte) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("data"))
@@ -60,6 +65,8 @@ func (s *Storage) SaveData(id string, data []byte) error {
 	})
 }
 
+// GetData retrieves encrypted data by ID.
+// It returns the data as a byte slice or an error if the data is not found.
 func (s *Storage) GetData(id string) ([]byte, error) {
 	var data []byte
 	err := s.db.View(func(tx *bbolt.Tx) error {
@@ -74,6 +81,8 @@ func (s *Storage) GetData(id string) ([]byte, error) {
 	return data, err
 }
 
+// GetAllData retrieves all stored data as a map of ID to data.
+// It returns all key-value pairs stored in the database for synchronization purposes.
 func (s *Storage) GetAllData() (map[string][]byte, error) {
 	result := make(map[string][]byte)
 	err := s.db.View(func(tx *bbolt.Tx) error {
@@ -86,6 +95,8 @@ func (s *Storage) GetAllData() (map[string][]byte, error) {
 	return result, err
 }
 
+// DeleteData removes data with the given ID from storage.
+// It deletes the specified data from the bbolt database in a transaction-safe manner.
 func (s *Storage) DeleteData(id string) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("data"))
@@ -93,6 +104,8 @@ func (s *Storage) DeleteData(id string) error {
 	})
 }
 
+// Close closes the database connection and releases associated resources.
+// It should be called when the storage is no longer needed to prevent resource leaks.
 func (s *Storage) Close() error {
 	return s.db.Close()
 }

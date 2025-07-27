@@ -4,10 +4,11 @@
 // - protoc             v6.31.1
 // source: api/gophkeeper.proto
 
-package api
+package client
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -19,291 +20,363 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GophKeeper_Register_FullMethodName   = "/gophkeeper.GophKeeper/Register"
-	GophKeeper_Login_FullMethodName      = "/gophkeeper.GophKeeper/Login"
-	GophKeeper_AddData_FullMethodName    = "/gophkeeper.GophKeeper/AddData"
-	GophKeeper_GetData_FullMethodName    = "/gophkeeper.GophKeeper/GetData"
-	GophKeeper_EditData_FullMethodName   = "/gophkeeper.GophKeeper/EditData"
-	GophKeeper_DeleteData_FullMethodName = "/gophkeeper.GophKeeper/DeleteData"
+	UserService_Register_FullMethodName = "/gophkeeper.UserService/Register"
+	UserService_Login_FullMethodName    = "/gophkeeper.UserService/Login"
 )
 
-// GophKeeperClient is the client API for GophKeeper service.
+// UserServiceClient is the client API for UserService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type GophKeeperClient interface {
+//
+// UserService handles user authentication and registration
+type UserServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
-	AddData(ctx context.Context, in *AddDataRequest, opts ...grpc.CallOption) (*AddDataResponse, error)
-	GetData(ctx context.Context, in *GetDataRequest, opts ...grpc.CallOption) (*GetDataResponse, error)
-	EditData(ctx context.Context, in *EditDataRequest, opts ...grpc.CallOption) (*EditDataResponse, error)
-	DeleteData(ctx context.Context, in *DeleteDataRequest, opts ...grpc.CallOption) (*DeleteDataResponse, error)
 }
 
-type gophKeeperClient struct {
+type userServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewGophKeeperClient(cc grpc.ClientConnInterface) GophKeeperClient {
-	return &gophKeeperClient{cc}
+func NewUserServiceClient(cc grpc.ClientConnInterface) UserServiceClient {
+	return &userServiceClient{cc}
 }
 
-func (c *gophKeeperClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
+func (c *userServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RegisterResponse)
-	err := c.cc.Invoke(ctx, GophKeeper_Register_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, UserService_Register_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *gophKeeperClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+func (c *userServiceClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LoginResponse)
-	err := c.cc.Invoke(ctx, GophKeeper_Login_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, UserService_Login_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *gophKeeperClient) AddData(ctx context.Context, in *AddDataRequest, opts ...grpc.CallOption) (*AddDataResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AddDataResponse)
-	err := c.cc.Invoke(ctx, GophKeeper_AddData_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gophKeeperClient) GetData(ctx context.Context, in *GetDataRequest, opts ...grpc.CallOption) (*GetDataResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetDataResponse)
-	err := c.cc.Invoke(ctx, GophKeeper_GetData_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gophKeeperClient) EditData(ctx context.Context, in *EditDataRequest, opts ...grpc.CallOption) (*EditDataResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(EditDataResponse)
-	err := c.cc.Invoke(ctx, GophKeeper_EditData_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gophKeeperClient) DeleteData(ctx context.Context, in *DeleteDataRequest, opts ...grpc.CallOption) (*DeleteDataResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DeleteDataResponse)
-	err := c.cc.Invoke(ctx, GophKeeper_DeleteData_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// GophKeeperServer is the server API for GophKeeper service.
-// All implementations must embed UnimplementedGophKeeperServer
+// UserServiceServer is the server API for UserService service.
+// All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
-type GophKeeperServer interface {
+//
+// UserService handles user authentication and registration
+type UserServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
-	AddData(context.Context, *AddDataRequest) (*AddDataResponse, error)
-	GetData(context.Context, *GetDataRequest) (*GetDataResponse, error)
-	EditData(context.Context, *EditDataRequest) (*EditDataResponse, error)
-	DeleteData(context.Context, *DeleteDataRequest) (*DeleteDataResponse, error)
-	mustEmbedUnimplementedGophKeeperServer()
+	mustEmbedUnimplementedUserServiceServer()
 }
 
-// UnimplementedGophKeeperServer must be embedded to have
+// UnimplementedUserServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedGophKeeperServer struct{}
+type UnimplementedUserServiceServer struct{}
 
-func (UnimplementedGophKeeperServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
+func (UnimplementedUserServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
-func (UnimplementedGophKeeperServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
+func (UnimplementedUserServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
 }
-func (UnimplementedGophKeeperServer) AddData(context.Context, *AddDataRequest) (*AddDataResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AddData not implemented")
-}
-func (UnimplementedGophKeeperServer) GetData(context.Context, *GetDataRequest) (*GetDataResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetData not implemented")
-}
-func (UnimplementedGophKeeperServer) EditData(context.Context, *EditDataRequest) (*EditDataResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method EditData not implemented")
-}
-func (UnimplementedGophKeeperServer) DeleteData(context.Context, *DeleteDataRequest) (*DeleteDataResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteData not implemented")
-}
-func (UnimplementedGophKeeperServer) mustEmbedUnimplementedGophKeeperServer() {}
-func (UnimplementedGophKeeperServer) testEmbeddedByValue()                    {}
+func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
+func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
 
-// UnsafeGophKeeperServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GophKeeperServer will
+// UnsafeUserServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to UserServiceServer will
 // result in compilation errors.
-type UnsafeGophKeeperServer interface {
-	mustEmbedUnimplementedGophKeeperServer()
+type UnsafeUserServiceServer interface {
+	mustEmbedUnimplementedUserServiceServer()
 }
 
-func RegisterGophKeeperServer(s grpc.ServiceRegistrar, srv GophKeeperServer) {
-	// If the following call pancis, it indicates UnimplementedGophKeeperServer was
+func RegisterUserServiceServer(s grpc.ServiceRegistrar, srv UserServiceServer) {
+	// If the following call pancis, it indicates UnimplementedUserServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&GophKeeper_ServiceDesc, srv)
+	s.RegisterService(&UserService_ServiceDesc, srv)
 }
 
-func _GophKeeper_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UserService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GophKeeperServer).Register(ctx, in)
+		return srv.(UserServiceServer).Register(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GophKeeper_Register_FullMethodName,
+		FullMethod: UserService_Register_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GophKeeperServer).Register(ctx, req.(*RegisterRequest))
+		return srv.(UserServiceServer).Register(ctx, req.(*RegisterRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GophKeeper_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UserService_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LoginRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GophKeeperServer).Login(ctx, in)
+		return srv.(UserServiceServer).Login(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GophKeeper_Login_FullMethodName,
+		FullMethod: UserService_Login_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GophKeeperServer).Login(ctx, req.(*LoginRequest))
+		return srv.(UserServiceServer).Login(ctx, req.(*LoginRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GophKeeper_AddData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+// UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var UserService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "gophkeeper.UserService",
+	HandlerType: (*UserServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Register",
+			Handler:    _UserService_Register_Handler,
+		},
+		{
+			MethodName: "Login",
+			Handler:    _UserService_Login_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/gophkeeper.proto",
+}
+
+const (
+	DataService_AddData_FullMethodName    = "/gophkeeper.DataService/AddData"
+	DataService_GetData_FullMethodName    = "/gophkeeper.DataService/GetData"
+	DataService_EditData_FullMethodName   = "/gophkeeper.DataService/EditData"
+	DataService_DeleteData_FullMethodName = "/gophkeeper.DataService/DeleteData"
+)
+
+// DataServiceClient is the client API for DataService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DataService handles data storage and retrieval operations
+type DataServiceClient interface {
+	AddData(ctx context.Context, in *AddDataRequest, opts ...grpc.CallOption) (*AddDataResponse, error)
+	GetData(ctx context.Context, in *GetDataRequest, opts ...grpc.CallOption) (*GetDataResponse, error)
+	EditData(ctx context.Context, in *EditDataRequest, opts ...grpc.CallOption) (*EditDataResponse, error)
+	DeleteData(ctx context.Context, in *DeleteDataRequest, opts ...grpc.CallOption) (*DeleteDataResponse, error)
+}
+
+type dataServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDataServiceClient(cc grpc.ClientConnInterface) DataServiceClient {
+	return &dataServiceClient{cc}
+}
+
+func (c *dataServiceClient) AddData(ctx context.Context, in *AddDataRequest, opts ...grpc.CallOption) (*AddDataResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddDataResponse)
+	err := c.cc.Invoke(ctx, DataService_AddData_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataServiceClient) GetData(ctx context.Context, in *GetDataRequest, opts ...grpc.CallOption) (*GetDataResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDataResponse)
+	err := c.cc.Invoke(ctx, DataService_GetData_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataServiceClient) EditData(ctx context.Context, in *EditDataRequest, opts ...grpc.CallOption) (*EditDataResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EditDataResponse)
+	err := c.cc.Invoke(ctx, DataService_EditData_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataServiceClient) DeleteData(ctx context.Context, in *DeleteDataRequest, opts ...grpc.CallOption) (*DeleteDataResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteDataResponse)
+	err := c.cc.Invoke(ctx, DataService_DeleteData_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DataServiceServer is the server API for DataService service.
+// All implementations must embed UnimplementedDataServiceServer
+// for forward compatibility.
+//
+// DataService handles data storage and retrieval operations
+type DataServiceServer interface {
+	AddData(context.Context, *AddDataRequest) (*AddDataResponse, error)
+	GetData(context.Context, *GetDataRequest) (*GetDataResponse, error)
+	EditData(context.Context, *EditDataRequest) (*EditDataResponse, error)
+	DeleteData(context.Context, *DeleteDataRequest) (*DeleteDataResponse, error)
+	mustEmbedUnimplementedDataServiceServer()
+}
+
+// UnimplementedDataServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDataServiceServer struct{}
+
+func (UnimplementedDataServiceServer) AddData(context.Context, *AddDataRequest) (*AddDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddData not implemented")
+}
+func (UnimplementedDataServiceServer) GetData(context.Context, *GetDataRequest) (*GetDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetData not implemented")
+}
+func (UnimplementedDataServiceServer) EditData(context.Context, *EditDataRequest) (*EditDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EditData not implemented")
+}
+func (UnimplementedDataServiceServer) DeleteData(context.Context, *DeleteDataRequest) (*DeleteDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteData not implemented")
+}
+func (UnimplementedDataServiceServer) mustEmbedUnimplementedDataServiceServer() {}
+func (UnimplementedDataServiceServer) testEmbeddedByValue()                     {}
+
+// UnsafeDataServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DataServiceServer will
+// result in compilation errors.
+type UnsafeDataServiceServer interface {
+	mustEmbedUnimplementedDataServiceServer()
+}
+
+func RegisterDataServiceServer(s grpc.ServiceRegistrar, srv DataServiceServer) {
+	// If the following call pancis, it indicates UnimplementedDataServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DataService_ServiceDesc, srv)
+}
+
+func _DataService_AddData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AddDataRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GophKeeperServer).AddData(ctx, in)
+		return srv.(DataServiceServer).AddData(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GophKeeper_AddData_FullMethodName,
+		FullMethod: DataService_AddData_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GophKeeperServer).AddData(ctx, req.(*AddDataRequest))
+		return srv.(DataServiceServer).AddData(ctx, req.(*AddDataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GophKeeper_GetData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DataService_GetData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetDataRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GophKeeperServer).GetData(ctx, in)
+		return srv.(DataServiceServer).GetData(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GophKeeper_GetData_FullMethodName,
+		FullMethod: DataService_GetData_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GophKeeperServer).GetData(ctx, req.(*GetDataRequest))
+		return srv.(DataServiceServer).GetData(ctx, req.(*GetDataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GophKeeper_EditData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DataService_EditData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EditDataRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GophKeeperServer).EditData(ctx, in)
+		return srv.(DataServiceServer).EditData(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GophKeeper_EditData_FullMethodName,
+		FullMethod: DataService_EditData_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GophKeeperServer).EditData(ctx, req.(*EditDataRequest))
+		return srv.(DataServiceServer).EditData(ctx, req.(*EditDataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GophKeeper_DeleteData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DataService_DeleteData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteDataRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GophKeeperServer).DeleteData(ctx, in)
+		return srv.(DataServiceServer).DeleteData(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GophKeeper_DeleteData_FullMethodName,
+		FullMethod: DataService_DeleteData_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GophKeeperServer).DeleteData(ctx, req.(*DeleteDataRequest))
+		return srv.(DataServiceServer).DeleteData(ctx, req.(*DeleteDataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// GophKeeper_ServiceDesc is the grpc.ServiceDesc for GophKeeper service.
+// DataService_ServiceDesc is the grpc.ServiceDesc for DataService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var GophKeeper_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "gophkeeper.GophKeeper",
-	HandlerType: (*GophKeeperServer)(nil),
+var DataService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "gophkeeper.DataService",
+	HandlerType: (*DataServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Register",
-			Handler:    _GophKeeper_Register_Handler,
-		},
-		{
-			MethodName: "Login",
-			Handler:    _GophKeeper_Login_Handler,
-		},
-		{
 			MethodName: "AddData",
-			Handler:    _GophKeeper_AddData_Handler,
+			Handler:    _DataService_AddData_Handler,
 		},
 		{
 			MethodName: "GetData",
-			Handler:    _GophKeeper_GetData_Handler,
+			Handler:    _DataService_GetData_Handler,
 		},
 		{
 			MethodName: "EditData",
-			Handler:    _GophKeeper_EditData_Handler,
+			Handler:    _DataService_EditData_Handler,
 		},
 		{
 			MethodName: "DeleteData",
-			Handler:    _GophKeeper_DeleteData_Handler,
+			Handler:    _DataService_DeleteData_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -39,15 +39,19 @@ func TestMergeFunction(t *testing.T) {
 
 	// Create test data with timestamps
 	now := time.Now().Unix()
-	localData1 := clientapi.Data{Id: "id1", Type: "login", Payload: []byte("local-data-1"), Timestamp: now}
-	localData2 := clientapi.Data{Id: "id2", Type: "login", Payload: []byte("local-data-2"), Timestamp: now}
-	remoteData2 := clientapi.Data{Id: "id2", Type: "login", Payload: []byte("remote-data-2"), Timestamp: now + 1} // Newer
-	remoteData3 := clientapi.Data{Id: "id3", Type: "login", Payload: []byte("remote-data-3"), Timestamp: now}
+	localData1 := clientapi.Data{Id: "id1", Type: clientapi.DataType_DATA_TYPE_LOGIN, Payload: []byte("local-data-1"), Timestamp: now}
+	localData2 := clientapi.Data{Id: "id2", Type: clientapi.DataType_DATA_TYPE_LOGIN, Payload: []byte("local-data-2"), Timestamp: now}
+	remoteData2 := clientapi.Data{Id: "id2", Type: clientapi.DataType_DATA_TYPE_LOGIN, Payload: []byte("remote-data-2"), Timestamp: now + 1} // Newer
+	remoteData3 := clientapi.Data{Id: "id3", Type: clientapi.DataType_DATA_TYPE_LOGIN, Payload: []byte("remote-data-3"), Timestamp: now}
 
 	// Marshal to JSON
+	//nolint:govet // protobuf structures contain sync.Mutex which is expected
 	local1Bytes, _ := json.Marshal(localData1)
+	//nolint:govet // protobuf structures contain sync.Mutex which is expected
 	local2Bytes, _ := json.Marshal(localData2)
+	//nolint:govet // protobuf structures contain sync.Mutex which is expected
 	remote2Bytes, _ := json.Marshal(remoteData2)
+	//nolint:govet // protobuf structures contain sync.Mutex which is expected
 	remote3Bytes, _ := json.Marshal(remoteData3)
 
 	local := map[string][]byte{

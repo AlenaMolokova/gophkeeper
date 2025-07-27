@@ -1,3 +1,8 @@
+// Package otp provides Time-based One-Time Password (TOTP) functionality for the GophKeeper application.
+// It implements TOTP generation, validation, and QR code URL generation for two-factor authentication.
+//
+// The package supports standard TOTP algorithms and provides backup code generation
+// for account recovery scenarios.
 package otp
 
 import (
@@ -11,6 +16,8 @@ import (
 )
 
 // TOTPConfig holds configuration for TOTP generation and validation.
+// It provides customizable settings for TOTP parameters including
+// issuer, account name, secret size, digits, period, and algorithm.
 type TOTPConfig struct {
 	// Issuer is the name of the service (e.g., "GophKeeper").
 	Issuer string
@@ -27,6 +34,8 @@ type TOTPConfig struct {
 }
 
 // DefaultTOTPConfig returns a default TOTP configuration.
+// It provides sensible defaults for TOTP parameters that are compatible
+// with most authenticator applications and follow RFC 6238 standards.
 func DefaultTOTPConfig() *TOTPConfig {
 	return &TOTPConfig{
 		Issuer:     "GophKeeper",
@@ -38,7 +47,11 @@ func DefaultTOTPConfig() *TOTPConfig {
 }
 
 // GenerateSecret generates a random secret key for TOTP.
-// The secret is returned as a base32-encoded string.
+// It creates a cryptographically secure random secret of the specified size
+// and returns it as a base32-encoded string for compatibility with TOTP standards.
+//
+// The function uses crypto/rand for secure random number generation
+// and ensures the secret is properly encoded for TOTP applications.
 func GenerateSecret(config *TOTPConfig) (string, error) {
 	if config == nil {
 		config = DefaultTOTPConfig()
@@ -53,7 +66,11 @@ func GenerateSecret(config *TOTPConfig) (string, error) {
 }
 
 // GenerateTOTP generates a TOTP code for the given secret.
-// The code is valid for the configured time period.
+// It creates a time-based one-time password using the current time
+// and the provided secret key, following RFC 6238 standards.
+//
+// The generated code is valid for the configured time period
+// and can be used for two-factor authentication.
 func GenerateTOTP(secret string, config *TOTPConfig) (string, error) {
 	code, err := totp.GenerateCode(secret, time.Now())
 	if err != nil {
@@ -64,13 +81,20 @@ func GenerateTOTP(secret string, config *TOTPConfig) (string, error) {
 }
 
 // ValidateTOTP validates a TOTP code against the given secret.
+// It checks if the provided code matches the expected TOTP value
+// for the current time window, allowing for clock skew tolerance.
+//
 // Returns true if the code is valid, false otherwise.
 func ValidateTOTP(secret, code string, config *TOTPConfig) bool {
 	return totp.Validate(code, secret)
 }
 
 // GenerateQRCodeURL generates a URL for QR code generation.
-// This URL can be used to create a QR code that users can scan with authenticator apps.
+// It creates a standardized URL that can be used to generate QR codes
+// for authenticator applications like Google Authenticator or Authy.
+//
+// The URL follows the otpauth:// scheme and includes all necessary
+// parameters for TOTP setup in authenticator apps.
 func GenerateQRCodeURL(secret, accountName string, config *TOTPConfig) (string, error) {
 	if config == nil {
 		config = DefaultTOTPConfig()
@@ -84,11 +108,19 @@ func GenerateQRCodeURL(secret, accountName string, config *TOTPConfig) (string, 
 	if period < 0 {
 		period = 0
 	}
+	// Safely convert to uint, ensuring it's within valid range
+	var periodUint uint
+	if period >= 0 && period <= 65535 { // reasonable upper limit for period
+		periodUint = uint(period)
+	} else {
+		periodUint = 30 // default period
+	}
+
 	opts := totp.GenerateOpts{
 		Issuer:      config.Issuer,
 		AccountName: accountName,
 		Secret:      []byte(secret),
-		Period:      uint(period),
+		Period:      periodUint,
 		Digits:      otp.Digits(config.Digits),
 		Algorithm:   otp.AlgorithmSHA1,
 	}
@@ -102,27 +134,38 @@ func GenerateQRCodeURL(secret, accountName string, config *TOTPConfig) (string, 
 }
 
 // GenerateBackupCodes generates a set of backup codes for account recovery.
-// These codes can be used to access the account if the TOTP device is lost.
+// It creates cryptographically secure random codes that can be used
+// as an alternative to TOTP codes for account access.
+//
+// The function generates codes of 8 characters each, using alphanumeric characters
+// for easy reading and manual entry if needed.
 func GenerateBackupCodes(count int) ([]string, error) {
 	if count <= 0 {
-		count = 10 // Default to 10 backup codes
+		return nil, fmt.Errorf("count must be positive")
 	}
 
 	codes := make([]string, count)
 	for i := 0; i < count; i++ {
-		// Generate 8-digit backup codes
-		code := make([]byte, 4) // 4 bytes = 8 hex digits
+		code := make([]byte, 8)
 		if _, err := rand.Read(code); err != nil {
-			return nil, fmt.Errorf("failed to generate backup code %d: %w", i+1, err)
+			return nil, fmt.Errorf("failed to generate backup code: %w", err)
 		}
-		codes[i] = fmt.Sprintf("%08x", code)
+		// Convert to alphanumeric characters
+		for j := 0; j < 8; j++ {
+			code[j] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[code[j]%36]
+		}
+		codes[i] = string(code)
 	}
 
 	return codes, nil
 }
 
 // ValidateBackupCode validates a backup code against a list of valid codes.
-// Returns true if the code is valid, false otherwise.
+// It checks if the provided code exists in the list of valid backup codes
+// and returns true if the code is valid, false otherwise.
+//
+// This function is typically used during account recovery or when
+// TOTP authentication is not available.
 func ValidateBackupCode(code string, validCodes []string) bool {
 	for _, validCode := range validCodes {
 		if code == validCode {

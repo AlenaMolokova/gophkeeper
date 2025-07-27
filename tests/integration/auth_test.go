@@ -11,13 +11,13 @@ import (
 )
 
 func TestUserRegistration(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	email := testutils.UniqueEmail("testuserreg")
 	password := "testpassword123"
 
 	// Test successful registration.
-	resp, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	resp, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -25,7 +25,7 @@ func TestUserRegistration(t *testing.T) {
 	require.NotEmpty(t, resp.Token)
 
 	// Test duplicate registration.
-	_, err = client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err = clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -33,20 +33,20 @@ func TestUserRegistration(t *testing.T) {
 }
 
 func TestUserLogin(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	email := testutils.UniqueEmail("testuserlogin")
 	password := "testpassword123"
 
 	// Register user first.
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
 	// Test successful login
-	resp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	resp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -54,14 +54,14 @@ func TestUserLogin(t *testing.T) {
 	require.NotEmpty(t, resp.Token)
 
 	// Test login with wrong password
-	_, err = client.Login(context.Background(), &clientapi.LoginRequest{
+	_, err = clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: "wrongpassword",
 	})
 	require.Error(t, err)
 
 	// Test login with non-existent user
-	_, err = client.Login(context.Background(), &clientapi.LoginRequest{
+	_, err = clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    "nonexistent@example.com",
 		Password: password,
 	})
@@ -69,19 +69,19 @@ func TestUserLogin(t *testing.T) {
 }
 
 func TestTokenValidation(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	email := testutils.UniqueEmail("testtokenval")
 	password := "testpassword123"
 
 	// Register and login to get token
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	loginResp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -89,24 +89,22 @@ func TestTokenValidation(t *testing.T) {
 	token := loginResp.Token
 
 	// Test valid token with data operation
-	_, err = client.AddData(context.Background(), &clientapi.AddDataRequest{
+	_, err = clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: token,
 		Data: &clientapi.Data{
-			Type:      "test",
+			Type:      clientapi.DataType_DATA_TYPE_TEXT,
 			Payload:   []byte("test data"),
-			Metadata:  map[string]string{},
 			Timestamp: time.Now().Unix(),
 		},
 	})
 	require.NoError(t, err)
 
 	// Test invalid token
-	_, err = client.AddData(context.Background(), &clientapi.AddDataRequest{
+	_, err = clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: "invalid-token",
 		Data: &clientapi.Data{
-			Type:      "test",
+			Type:      clientapi.DataType_DATA_TYPE_TEXT,
 			Payload:   []byte("test data"),
-			Metadata:  map[string]string{},
 			Timestamp: time.Now().Unix(),
 		},
 	})

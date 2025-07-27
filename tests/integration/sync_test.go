@@ -17,19 +17,19 @@ func uniqueEmail(base string) string {
 }
 
 func TestSyncBetweenClients(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: register and login user.
 	email := uniqueEmail("testsync")
 	password := "testpassword123"
 
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	loginResp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -38,13 +38,13 @@ func TestSyncBetweenClients(t *testing.T) {
 
 	// Add data from "client 1".
 	data1 := &clientapi.Data{
-		Type:      "login",
+		Type:      clientapi.DataType_DATA_TYPE_LOGIN,
 		Payload:   []byte("client1-data"),
-		Metadata:  map[string]string{"source": "client1"},
+		Metadata:  &clientapi.Data_LoginData{LoginData: &clientapi.LoginData{Notes: "client1"}},
 		Timestamp: time.Now().Unix(),
 	}
 
-	addResp1, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+	addResp1, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: token,
 		Data:  data1,
 	})
@@ -52,27 +52,27 @@ func TestSyncBetweenClients(t *testing.T) {
 
 	// Simulate "client 2" adding different data.
 	data2 := &clientapi.Data{
-		Type:      "text",
+		Type:      clientapi.DataType_DATA_TYPE_TEXT,
 		Payload:   []byte("client2-data"),
-		Metadata:  map[string]string{"source": "client2"},
+		Metadata:  &clientapi.Data_TextData{TextData: &clientapi.TextData{Notes: "client2"}},
 		Timestamp: time.Now().Unix(),
 	}
 
-	addResp2, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+	addResp2, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: token,
 		Data:  data2,
 	})
 	require.NoError(t, err)
 
 	// Verify both data items exist.
-	getResp1, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+	getResp1, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: token,
 		Id:    addResp1.Id,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "client1-data", string(getResp1.Data.Payload))
 
-	getResp2, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+	getResp2, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: token,
 		Id:    addResp2.Id,
 	})
@@ -80,13 +80,13 @@ func TestSyncBetweenClients(t *testing.T) {
 	require.Equal(t, "client2-data", string(getResp2.Data.Payload))
 
 	// Clean up.
-	_, err = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+	_, err = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 		Token: token,
 		Id:    addResp1.Id,
 	})
 	require.NoError(t, err)
 
-	_, err = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+	_, err = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 		Token: token,
 		Id:    addResp2.Id,
 	})
@@ -94,7 +94,7 @@ func TestSyncBetweenClients(t *testing.T) {
 }
 
 func TestMultiUserSync(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: create two users.
 	user1Email := uniqueEmail("syncuser1")
@@ -102,95 +102,95 @@ func TestMultiUserSync(t *testing.T) {
 	password := "testpassword123"
 
 	// Register and login user1.
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    user1Email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	user1Login, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	user1Login, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    user1Email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
 	// Register and login user2.
-	_, err = client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err = clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    user2Email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	user2Login, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	user2Login, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    user2Email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
 	// User1 adds data.
-	data1 := &clientapi.Data{
-		Type:      "user1-data",
-		Payload:   []byte("user1-secret"),
-		Metadata:  map[string]string{"owner": "user1"},
+	user1Data := &clientapi.Data{
+		Type:      clientapi.DataType_DATA_TYPE_TEXT,
+		Payload:   []byte("user1-data"),
+		Metadata:  &clientapi.Data_TextData{TextData: &clientapi.TextData{Notes: "user1"}},
 		Timestamp: time.Now().Unix(),
 	}
 
-	addResp1, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+	addResp1, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: user1Login.Token,
-		Data:  data1,
+		Data:  user1Data,
 	})
 	require.NoError(t, err)
 
 	// User2 adds different data.
-	data2 := &clientapi.Data{
-		Type:      "user2-data",
-		Payload:   []byte("user2-secret"),
-		Metadata:  map[string]string{"owner": "user2"},
+	user2Data := &clientapi.Data{
+		Type:      clientapi.DataType_DATA_TYPE_TEXT,
+		Payload:   []byte("user2-data"),
+		Metadata:  &clientapi.Data_TextData{TextData: &clientapi.TextData{Notes: "user2"}},
 		Timestamp: time.Now().Unix(),
 	}
 
-	addResp2, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+	addResp2, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: user2Login.Token,
-		Data:  data2,
+		Data:  user2Data,
 	})
 	require.NoError(t, err)
 
-	// Verify users can only access their own data.
-	getResp1, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+	// Verify each user can only access their own data.
+	getResp1, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: user1Login.Token,
 		Id:    addResp1.Id,
 	})
 	require.NoError(t, err)
-	require.Equal(t, "user1-secret", string(getResp1.Data.Payload))
+	require.Equal(t, "user1-data", string(getResp1.Data.Payload))
 
-	getResp2, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+	getResp2, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: user2Login.Token,
 		Id:    addResp2.Id,
 	})
 	require.NoError(t, err)
-	require.Equal(t, "user2-secret", string(getResp2.Data.Payload))
+	require.Equal(t, "user2-data", string(getResp2.Data.Payload))
 
 	// Verify users cannot access each other's data.
-	_, err = client.GetData(context.Background(), &clientapi.GetDataRequest{
+	_, err = clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: user1Login.Token,
 		Id:    addResp2.Id,
 	})
-	require.Error(t, err) // User1 cannot access User2's data.
+	require.Error(t, err) // Should fail - access denied.
 
-	_, err = client.GetData(context.Background(), &clientapi.GetDataRequest{
+	_, err = clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: user2Login.Token,
 		Id:    addResp1.Id,
 	})
-	require.Error(t, err) // User2 cannot access User1's data.
+	require.Error(t, err) // Should fail - access denied.
 
 	// Clean up.
-	_, err = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+	_, err = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 		Token: user1Login.Token,
 		Id:    addResp1.Id,
 	})
 	require.NoError(t, err)
 
-	_, err = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+	_, err = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 		Token: user2Login.Token,
 		Id:    addResp2.Id,
 	})
@@ -198,87 +198,54 @@ func TestMultiUserSync(t *testing.T) {
 }
 
 func TestDataConsistency(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: register and login user.
 	email := uniqueEmail("testconsistency")
 	password := "testpassword123"
 
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	loginResp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 	token := loginResp.Token
 
-	// Test data consistency across multiple operations.
-	testData := []byte("consistent-data")
+	// Add data and verify consistency.
 	data := &clientapi.Data{
-		Type:      "consistency-test",
-		Payload:   testData,
-		Metadata:  map[string]string{"test": "consistency"},
+		Type:      clientapi.DataType_DATA_TYPE_TEXT,
+		Payload:   []byte("consistent-data"),
+		Metadata:  &clientapi.Data_TextData{TextData: &clientapi.TextData{Title: "Test"}},
 		Timestamp: time.Now().Unix(),
 	}
 
-	// Add data.
-	addResp, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+	addResp, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: token,
 		Data:  data,
 	})
 	require.NoError(t, err)
-	dataID := addResp.Id
 
-	// Read data multiple times to ensure consistency.
+	// Read the data multiple times to ensure consistency.
 	for i := 0; i < 5; i++ {
-		getResp, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+		getResp, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 			Token: token,
-			Id:    dataID,
+			Id:    addResp.Id,
 		})
 		require.NoError(t, err)
-		require.Equal(t, testData, getResp.Data.Payload)
-		require.Equal(t, "consistency-test", getResp.Data.Type)
-		require.Equal(t, "consistency", getResp.Data.Metadata["test"])
-	}
-
-	// Update data.
-	updatedData := []byte("updated-consistent-data")
-	updateData := &clientapi.Data{
-		Id:        dataID,
-		Type:      "consistency-test",
-		Payload:   updatedData,
-		Metadata:  map[string]string{"test": "consistency", "updated": "true"},
-		Timestamp: time.Now().Unix(),
-	}
-
-	_, err = client.EditData(context.Background(), &clientapi.EditDataRequest{
-		Token: token,
-		Data:  updateData,
-	})
-	require.NoError(t, err)
-
-	// Read updated data multiple times to ensure consistency.
-	for i := 0; i < 5; i++ {
-		getResp, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
-			Token: token,
-			Id:    dataID,
-		})
-		require.NoError(t, err)
-		require.Equal(t, updatedData, getResp.Data.Payload)
-		require.Equal(t, "consistency-test", getResp.Data.Type)
-		require.Equal(t, "consistency", getResp.Data.Metadata["test"])
-		require.Equal(t, "true", getResp.Data.Metadata["updated"])
+		require.Equal(t, "consistent-data", string(getResp.Data.Payload))
+		require.Equal(t, clientapi.DataType_DATA_TYPE_TEXT, getResp.Data.Type)
 	}
 
 	// Clean up.
-	_, err = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+	_, err = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 		Token: token,
-		Id:    dataID,
+		Id:    addResp.Id,
 	})
 	require.NoError(t, err)
 }

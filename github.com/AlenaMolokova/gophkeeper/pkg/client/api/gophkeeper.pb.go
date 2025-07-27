@@ -4,14 +4,15 @@
 // 	protoc        v6.31.1
 // source: api/gophkeeper.proto
 
-package api
+package client
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -20,6 +21,65 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+// DataType represents the type of stored data
+type DataType int32
+
+const (
+	DataType_DATA_TYPE_UNSPECIFIED DataType = 0
+	DataType_DATA_TYPE_LOGIN       DataType = 1
+	DataType_DATA_TYPE_TEXT        DataType = 2
+	DataType_DATA_TYPE_BINARY      DataType = 3
+	DataType_DATA_TYPE_CARD        DataType = 4
+	DataType_DATA_TYPE_OTP         DataType = 5
+)
+
+// Enum value maps for DataType.
+var (
+	DataType_name = map[int32]string{
+		0: "DATA_TYPE_UNSPECIFIED",
+		1: "DATA_TYPE_LOGIN",
+		2: "DATA_TYPE_TEXT",
+		3: "DATA_TYPE_BINARY",
+		4: "DATA_TYPE_CARD",
+		5: "DATA_TYPE_OTP",
+	}
+	DataType_value = map[string]int32{
+		"DATA_TYPE_UNSPECIFIED": 0,
+		"DATA_TYPE_LOGIN":       1,
+		"DATA_TYPE_TEXT":        2,
+		"DATA_TYPE_BINARY":      3,
+		"DATA_TYPE_CARD":        4,
+		"DATA_TYPE_OTP":         5,
+	}
+)
+
+func (x DataType) Enum() *DataType {
+	p := new(DataType)
+	*p = x
+	return p
+}
+
+func (x DataType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DataType) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_gophkeeper_proto_enumTypes[0].Descriptor()
+}
+
+func (DataType) Type() protoreflect.EnumType {
+	return &file_api_gophkeeper_proto_enumTypes[0]
+}
+
+func (x DataType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DataType.Descriptor instead.
+func (DataType) EnumDescriptor() ([]byte, []int) {
+	return file_api_gophkeeper_proto_rawDescGZIP(), []int{0}
+}
 
 type RegisterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -589,20 +649,380 @@ func (*DeleteDataResponse) Descriptor() ([]byte, []int) {
 	return file_api_gophkeeper_proto_rawDescGZIP(), []int{11}
 }
 
-type Data struct {
+// LoginData represents login credentials metadata
+type LoginData struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`                                                                                   // "login", "text", "binary", "card", "otp"
-	Payload       []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`                                                                             // Encrypted data
-	Metadata      map[string]string      `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional metadata
-	Timestamp     int64                  `protobuf:"varint,5,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                                                                        // For synchronization
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Url           string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	Notes         string                 `protobuf:"bytes,3,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoginData) Reset() {
+	*x = LoginData{}
+	mi := &file_api_gophkeeper_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoginData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoginData) ProtoMessage() {}
+
+func (x *LoginData) ProtoReflect() protoreflect.Message {
+	mi := &file_api_gophkeeper_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoginData.ProtoReflect.Descriptor instead.
+func (*LoginData) Descriptor() ([]byte, []int) {
+	return file_api_gophkeeper_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *LoginData) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *LoginData) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *LoginData) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+// CardData represents credit card metadata
+type CardData struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	CardNumber     string                 `protobuf:"bytes,1,opt,name=card_number,json=cardNumber,proto3" json:"card_number,omitempty"`
+	CardholderName string                 `protobuf:"bytes,2,opt,name=cardholder_name,json=cardholderName,proto3" json:"cardholder_name,omitempty"`
+	ExpiryMonth    string                 `protobuf:"bytes,3,opt,name=expiry_month,json=expiryMonth,proto3" json:"expiry_month,omitempty"`
+	ExpiryYear     string                 `protobuf:"bytes,4,opt,name=expiry_year,json=expiryYear,proto3" json:"expiry_year,omitempty"`
+	Cvv            string                 `protobuf:"bytes,5,opt,name=cvv,proto3" json:"cvv,omitempty"`
+	Notes          string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CardData) Reset() {
+	*x = CardData{}
+	mi := &file_api_gophkeeper_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CardData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CardData) ProtoMessage() {}
+
+func (x *CardData) ProtoReflect() protoreflect.Message {
+	mi := &file_api_gophkeeper_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CardData.ProtoReflect.Descriptor instead.
+func (*CardData) Descriptor() ([]byte, []int) {
+	return file_api_gophkeeper_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *CardData) GetCardNumber() string {
+	if x != nil {
+		return x.CardNumber
+	}
+	return ""
+}
+
+func (x *CardData) GetCardholderName() string {
+	if x != nil {
+		return x.CardholderName
+	}
+	return ""
+}
+
+func (x *CardData) GetExpiryMonth() string {
+	if x != nil {
+		return x.ExpiryMonth
+	}
+	return ""
+}
+
+func (x *CardData) GetExpiryYear() string {
+	if x != nil {
+		return x.ExpiryYear
+	}
+	return ""
+}
+
+func (x *CardData) GetCvv() string {
+	if x != nil {
+		return x.Cvv
+	}
+	return ""
+}
+
+func (x *CardData) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+// TextData represents text data metadata
+type TextData struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
+	Notes         string                 `protobuf:"bytes,2,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TextData) Reset() {
+	*x = TextData{}
+	mi := &file_api_gophkeeper_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TextData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TextData) ProtoMessage() {}
+
+func (x *TextData) ProtoReflect() protoreflect.Message {
+	mi := &file_api_gophkeeper_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TextData.ProtoReflect.Descriptor instead.
+func (*TextData) Descriptor() ([]byte, []int) {
+	return file_api_gophkeeper_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *TextData) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *TextData) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+// BinaryData represents binary data metadata
+type BinaryData struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
+	Notes         string                 `protobuf:"bytes,4,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BinaryData) Reset() {
+	*x = BinaryData{}
+	mi := &file_api_gophkeeper_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BinaryData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BinaryData) ProtoMessage() {}
+
+func (x *BinaryData) ProtoReflect() protoreflect.Message {
+	mi := &file_api_gophkeeper_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BinaryData.ProtoReflect.Descriptor instead.
+func (*BinaryData) Descriptor() ([]byte, []int) {
+	return file_api_gophkeeper_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *BinaryData) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+func (x *BinaryData) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *BinaryData) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *BinaryData) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+// OTPData represents OTP metadata
+type OTPData struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Issuer        string                 `protobuf:"bytes,1,opt,name=issuer,proto3" json:"issuer,omitempty"`
+	Account       string                 `protobuf:"bytes,2,opt,name=account,proto3" json:"account,omitempty"`
+	Algorithm     string                 `protobuf:"bytes,3,opt,name=algorithm,proto3" json:"algorithm,omitempty"`
+	Digits        int32                  `protobuf:"varint,4,opt,name=digits,proto3" json:"digits,omitempty"`
+	Period        int32                  `protobuf:"varint,5,opt,name=period,proto3" json:"period,omitempty"`
+	Notes         string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OTPData) Reset() {
+	*x = OTPData{}
+	mi := &file_api_gophkeeper_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OTPData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OTPData) ProtoMessage() {}
+
+func (x *OTPData) ProtoReflect() protoreflect.Message {
+	mi := &file_api_gophkeeper_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OTPData.ProtoReflect.Descriptor instead.
+func (*OTPData) Descriptor() ([]byte, []int) {
+	return file_api_gophkeeper_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *OTPData) GetIssuer() string {
+	if x != nil {
+		return x.Issuer
+	}
+	return ""
+}
+
+func (x *OTPData) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
+func (x *OTPData) GetAlgorithm() string {
+	if x != nil {
+		return x.Algorithm
+	}
+	return ""
+}
+
+func (x *OTPData) GetDigits() int32 {
+	if x != nil {
+		return x.Digits
+	}
+	return 0
+}
+
+func (x *OTPData) GetPeriod() int32 {
+	if x != nil {
+		return x.Period
+	}
+	return 0
+}
+
+func (x *OTPData) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+type Data struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Type    DataType               `protobuf:"varint,2,opt,name=type,proto3,enum=gophkeeper.DataType" json:"type,omitempty"`
+	Payload []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"` // Encrypted data
+	// Types that are valid to be assigned to Metadata:
+	//
+	//	*Data_LoginData
+	//	*Data_CardData
+	//	*Data_TextData
+	//	*Data_BinaryData
+	//	*Data_OtpData
+	Metadata      isData_Metadata `protobuf_oneof:"metadata"`
+	Timestamp     int64           `protobuf:"varint,9,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // For synchronization
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Data) Reset() {
 	*x = Data{}
-	mi := &file_api_gophkeeper_proto_msgTypes[12]
+	mi := &file_api_gophkeeper_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -614,7 +1034,7 @@ func (x *Data) String() string {
 func (*Data) ProtoMessage() {}
 
 func (x *Data) ProtoReflect() protoreflect.Message {
-	mi := &file_api_gophkeeper_proto_msgTypes[12]
+	mi := &file_api_gophkeeper_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -627,7 +1047,7 @@ func (x *Data) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Data.ProtoReflect.Descriptor instead.
 func (*Data) Descriptor() ([]byte, []int) {
-	return file_api_gophkeeper_proto_rawDescGZIP(), []int{12}
+	return file_api_gophkeeper_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Data) GetId() string {
@@ -637,11 +1057,11 @@ func (x *Data) GetId() string {
 	return ""
 }
 
-func (x *Data) GetType() string {
+func (x *Data) GetType() DataType {
 	if x != nil {
 		return x.Type
 	}
-	return ""
+	return DataType_DATA_TYPE_UNSPECIFIED
 }
 
 func (x *Data) GetPayload() []byte {
@@ -651,9 +1071,54 @@ func (x *Data) GetPayload() []byte {
 	return nil
 }
 
-func (x *Data) GetMetadata() map[string]string {
+func (x *Data) GetMetadata() isData_Metadata {
 	if x != nil {
 		return x.Metadata
+	}
+	return nil
+}
+
+func (x *Data) GetLoginData() *LoginData {
+	if x != nil {
+		if x, ok := x.Metadata.(*Data_LoginData); ok {
+			return x.LoginData
+		}
+	}
+	return nil
+}
+
+func (x *Data) GetCardData() *CardData {
+	if x != nil {
+		if x, ok := x.Metadata.(*Data_CardData); ok {
+			return x.CardData
+		}
+	}
+	return nil
+}
+
+func (x *Data) GetTextData() *TextData {
+	if x != nil {
+		if x, ok := x.Metadata.(*Data_TextData); ok {
+			return x.TextData
+		}
+	}
+	return nil
+}
+
+func (x *Data) GetBinaryData() *BinaryData {
+	if x != nil {
+		if x, ok := x.Metadata.(*Data_BinaryData); ok {
+			return x.BinaryData
+		}
+	}
+	return nil
+}
+
+func (x *Data) GetOtpData() *OTPData {
+	if x != nil {
+		if x, ok := x.Metadata.(*Data_OtpData); ok {
+			return x.OtpData
+		}
 	}
 	return nil
 }
@@ -664,6 +1129,40 @@ func (x *Data) GetTimestamp() int64 {
 	}
 	return 0
 }
+
+type isData_Metadata interface {
+	isData_Metadata()
+}
+
+type Data_LoginData struct {
+	LoginData *LoginData `protobuf:"bytes,4,opt,name=login_data,json=loginData,proto3,oneof"`
+}
+
+type Data_CardData struct {
+	CardData *CardData `protobuf:"bytes,5,opt,name=card_data,json=cardData,proto3,oneof"`
+}
+
+type Data_TextData struct {
+	TextData *TextData `protobuf:"bytes,6,opt,name=text_data,json=textData,proto3,oneof"`
+}
+
+type Data_BinaryData struct {
+	BinaryData *BinaryData `protobuf:"bytes,7,opt,name=binary_data,json=binaryData,proto3,oneof"`
+}
+
+type Data_OtpData struct {
+	OtpData *OTPData `protobuf:"bytes,8,opt,name=otp_data,json=otpData,proto3,oneof"`
+}
+
+func (*Data_LoginData) isData_Metadata() {}
+
+func (*Data_CardData) isData_Metadata() {}
+
+func (*Data_TextData) isData_Metadata() {}
+
+func (*Data_BinaryData) isData_Metadata() {}
+
+func (*Data_OtpData) isData_Metadata() {}
 
 var File_api_gophkeeper_proto protoreflect.FileDescriptor
 
@@ -699,25 +1198,66 @@ const file_api_gophkeeper_proto_rawDesc = "" +
 	"\x11DeleteDataRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\tR\x02id\"\x14\n" +
-	"\x12DeleteDataResponse\"\xdb\x01\n" +
-	"\x04Data\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
-	"\apayload\x18\x03 \x01(\fR\apayload\x12:\n" +
-	"\bmetadata\x18\x04 \x03(\v2\x1e.gophkeeper.Data.MetadataEntryR\bmetadata\x12\x1c\n" +
-	"\ttimestamp\x18\x05 \x01(\x03R\ttimestamp\x1a;\n" +
-	"\rMetadataEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012\xad\x03\n" +
+	"\x12DeleteDataResponse\"O\n" +
+	"\tLoginData\x12\x1a\n" +
+	"\busername\x18\x01 \x01(\tR\busername\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12\x14\n" +
+	"\x05notes\x18\x03 \x01(\tR\x05notes\"\xc0\x01\n" +
+	"\bCardData\x12\x1f\n" +
+	"\vcard_number\x18\x01 \x01(\tR\n" +
+	"cardNumber\x12'\n" +
+	"\x0fcardholder_name\x18\x02 \x01(\tR\x0ecardholderName\x12!\n" +
+	"\fexpiry_month\x18\x03 \x01(\tR\vexpiryMonth\x12\x1f\n" +
+	"\vexpiry_year\x18\x04 \x01(\tR\n" +
+	"expiryYear\x12\x10\n" +
+	"\x03cvv\x18\x05 \x01(\tR\x03cvv\x12\x14\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notes\"6\n" +
+	"\bTextData\x12\x14\n" +
+	"\x05title\x18\x01 \x01(\tR\x05title\x12\x14\n" +
+	"\x05notes\x18\x02 \x01(\tR\x05notes\"u\n" +
 	"\n" +
-	"GophKeeper\x12E\n" +
+	"BinaryData\x12\x1a\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\x12!\n" +
+	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x14\n" +
+	"\x05notes\x18\x04 \x01(\tR\x05notes\"\x9f\x01\n" +
+	"\aOTPData\x12\x16\n" +
+	"\x06issuer\x18\x01 \x01(\tR\x06issuer\x12\x18\n" +
+	"\aaccount\x18\x02 \x01(\tR\aaccount\x12\x1c\n" +
+	"\talgorithm\x18\x03 \x01(\tR\talgorithm\x12\x16\n" +
+	"\x06digits\x18\x04 \x01(\x05R\x06digits\x12\x16\n" +
+	"\x06period\x18\x05 \x01(\x05R\x06period\x12\x14\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notes\"\x93\x03\n" +
+	"\x04Data\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
+	"\x04type\x18\x02 \x01(\x0e2\x14.gophkeeper.DataTypeR\x04type\x12\x18\n" +
+	"\apayload\x18\x03 \x01(\fR\apayload\x126\n" +
+	"\n" +
+	"login_data\x18\x04 \x01(\v2\x15.gophkeeper.LoginDataH\x00R\tloginData\x123\n" +
+	"\tcard_data\x18\x05 \x01(\v2\x14.gophkeeper.CardDataH\x00R\bcardData\x123\n" +
+	"\ttext_data\x18\x06 \x01(\v2\x14.gophkeeper.TextDataH\x00R\btextData\x129\n" +
+	"\vbinary_data\x18\a \x01(\v2\x16.gophkeeper.BinaryDataH\x00R\n" +
+	"binaryData\x120\n" +
+	"\botp_data\x18\b \x01(\v2\x13.gophkeeper.OTPDataH\x00R\aotpData\x12\x1c\n" +
+	"\ttimestamp\x18\t \x01(\x03R\ttimestampB\n" +
+	"\n" +
+	"\bmetadata*\x8b\x01\n" +
+	"\bDataType\x12\x19\n" +
+	"\x15DATA_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fDATA_TYPE_LOGIN\x10\x01\x12\x12\n" +
+	"\x0eDATA_TYPE_TEXT\x10\x02\x12\x14\n" +
+	"\x10DATA_TYPE_BINARY\x10\x03\x12\x12\n" +
+	"\x0eDATA_TYPE_CARD\x10\x04\x12\x11\n" +
+	"\rDATA_TYPE_OTP\x10\x052\x92\x01\n" +
+	"\vUserService\x12E\n" +
 	"\bRegister\x12\x1b.gophkeeper.RegisterRequest\x1a\x1c.gophkeeper.RegisterResponse\x12<\n" +
-	"\x05Login\x12\x18.gophkeeper.LoginRequest\x1a\x19.gophkeeper.LoginResponse\x12B\n" +
+	"\x05Login\x12\x18.gophkeeper.LoginRequest\x1a\x19.gophkeeper.LoginResponse2\xa9\x02\n" +
+	"\vDataService\x12B\n" +
 	"\aAddData\x12\x1a.gophkeeper.AddDataRequest\x1a\x1b.gophkeeper.AddDataResponse\x12B\n" +
 	"\aGetData\x12\x1a.gophkeeper.GetDataRequest\x1a\x1b.gophkeeper.GetDataResponse\x12E\n" +
 	"\bEditData\x12\x1b.gophkeeper.EditDataRequest\x1a\x1c.gophkeeper.EditDataResponse\x12K\n" +
 	"\n" +
-	"DeleteData\x12\x1d.gophkeeper.DeleteDataRequest\x1a\x1e.gophkeeper.DeleteDataResponseB4Z2github.com/AlenaMolokova/gophkeeper/pkg/client/apib\x06proto3"
+	"DeleteData\x12\x1d.gophkeeper.DeleteDataRequest\x1a\x1e.gophkeeper.DeleteDataResponseB;Z9github.com/AlenaMolokova/gophkeeper/pkg/client/api;clientb\x06proto3"
 
 var (
 	file_api_gophkeeper_proto_rawDescOnce sync.Once
@@ -731,45 +1271,56 @@ func file_api_gophkeeper_proto_rawDescGZIP() []byte {
 	return file_api_gophkeeper_proto_rawDescData
 }
 
-var file_api_gophkeeper_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_api_gophkeeper_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_api_gophkeeper_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_api_gophkeeper_proto_goTypes = []any{
-	(*RegisterRequest)(nil),    // 0: gophkeeper.RegisterRequest
-	(*RegisterResponse)(nil),   // 1: gophkeeper.RegisterResponse
-	(*LoginRequest)(nil),       // 2: gophkeeper.LoginRequest
-	(*LoginResponse)(nil),      // 3: gophkeeper.LoginResponse
-	(*AddDataRequest)(nil),     // 4: gophkeeper.AddDataRequest
-	(*AddDataResponse)(nil),    // 5: gophkeeper.AddDataResponse
-	(*GetDataRequest)(nil),     // 6: gophkeeper.GetDataRequest
-	(*GetDataResponse)(nil),    // 7: gophkeeper.GetDataResponse
-	(*EditDataRequest)(nil),    // 8: gophkeeper.EditDataRequest
-	(*EditDataResponse)(nil),   // 9: gophkeeper.EditDataResponse
-	(*DeleteDataRequest)(nil),  // 10: gophkeeper.DeleteDataRequest
-	(*DeleteDataResponse)(nil), // 11: gophkeeper.DeleteDataResponse
-	(*Data)(nil),               // 12: gophkeeper.Data
-	nil,                        // 13: gophkeeper.Data.MetadataEntry
+	(DataType)(0),              // 0: gophkeeper.DataType
+	(*RegisterRequest)(nil),    // 1: gophkeeper.RegisterRequest
+	(*RegisterResponse)(nil),   // 2: gophkeeper.RegisterResponse
+	(*LoginRequest)(nil),       // 3: gophkeeper.LoginRequest
+	(*LoginResponse)(nil),      // 4: gophkeeper.LoginResponse
+	(*AddDataRequest)(nil),     // 5: gophkeeper.AddDataRequest
+	(*AddDataResponse)(nil),    // 6: gophkeeper.AddDataResponse
+	(*GetDataRequest)(nil),     // 7: gophkeeper.GetDataRequest
+	(*GetDataResponse)(nil),    // 8: gophkeeper.GetDataResponse
+	(*EditDataRequest)(nil),    // 9: gophkeeper.EditDataRequest
+	(*EditDataResponse)(nil),   // 10: gophkeeper.EditDataResponse
+	(*DeleteDataRequest)(nil),  // 11: gophkeeper.DeleteDataRequest
+	(*DeleteDataResponse)(nil), // 12: gophkeeper.DeleteDataResponse
+	(*LoginData)(nil),          // 13: gophkeeper.LoginData
+	(*CardData)(nil),           // 14: gophkeeper.CardData
+	(*TextData)(nil),           // 15: gophkeeper.TextData
+	(*BinaryData)(nil),         // 16: gophkeeper.BinaryData
+	(*OTPData)(nil),            // 17: gophkeeper.OTPData
+	(*Data)(nil),               // 18: gophkeeper.Data
 }
 var file_api_gophkeeper_proto_depIdxs = []int32{
-	12, // 0: gophkeeper.AddDataRequest.data:type_name -> gophkeeper.Data
-	12, // 1: gophkeeper.GetDataResponse.data:type_name -> gophkeeper.Data
-	12, // 2: gophkeeper.EditDataRequest.data:type_name -> gophkeeper.Data
-	13, // 3: gophkeeper.Data.metadata:type_name -> gophkeeper.Data.MetadataEntry
-	0,  // 4: gophkeeper.GophKeeper.Register:input_type -> gophkeeper.RegisterRequest
-	2,  // 5: gophkeeper.GophKeeper.Login:input_type -> gophkeeper.LoginRequest
-	4,  // 6: gophkeeper.GophKeeper.AddData:input_type -> gophkeeper.AddDataRequest
-	6,  // 7: gophkeeper.GophKeeper.GetData:input_type -> gophkeeper.GetDataRequest
-	8,  // 8: gophkeeper.GophKeeper.EditData:input_type -> gophkeeper.EditDataRequest
-	10, // 9: gophkeeper.GophKeeper.DeleteData:input_type -> gophkeeper.DeleteDataRequest
-	1,  // 10: gophkeeper.GophKeeper.Register:output_type -> gophkeeper.RegisterResponse
-	3,  // 11: gophkeeper.GophKeeper.Login:output_type -> gophkeeper.LoginResponse
-	5,  // 12: gophkeeper.GophKeeper.AddData:output_type -> gophkeeper.AddDataResponse
-	7,  // 13: gophkeeper.GophKeeper.GetData:output_type -> gophkeeper.GetDataResponse
-	9,  // 14: gophkeeper.GophKeeper.EditData:output_type -> gophkeeper.EditDataResponse
-	11, // 15: gophkeeper.GophKeeper.DeleteData:output_type -> gophkeeper.DeleteDataResponse
-	10, // [10:16] is the sub-list for method output_type
-	4,  // [4:10] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	18, // 0: gophkeeper.AddDataRequest.data:type_name -> gophkeeper.Data
+	18, // 1: gophkeeper.GetDataResponse.data:type_name -> gophkeeper.Data
+	18, // 2: gophkeeper.EditDataRequest.data:type_name -> gophkeeper.Data
+	0,  // 3: gophkeeper.Data.type:type_name -> gophkeeper.DataType
+	13, // 4: gophkeeper.Data.login_data:type_name -> gophkeeper.LoginData
+	14, // 5: gophkeeper.Data.card_data:type_name -> gophkeeper.CardData
+	15, // 6: gophkeeper.Data.text_data:type_name -> gophkeeper.TextData
+	16, // 7: gophkeeper.Data.binary_data:type_name -> gophkeeper.BinaryData
+	17, // 8: gophkeeper.Data.otp_data:type_name -> gophkeeper.OTPData
+	1,  // 9: gophkeeper.UserService.Register:input_type -> gophkeeper.RegisterRequest
+	3,  // 10: gophkeeper.UserService.Login:input_type -> gophkeeper.LoginRequest
+	5,  // 11: gophkeeper.DataService.AddData:input_type -> gophkeeper.AddDataRequest
+	7,  // 12: gophkeeper.DataService.GetData:input_type -> gophkeeper.GetDataRequest
+	9,  // 13: gophkeeper.DataService.EditData:input_type -> gophkeeper.EditDataRequest
+	11, // 14: gophkeeper.DataService.DeleteData:input_type -> gophkeeper.DeleteDataRequest
+	2,  // 15: gophkeeper.UserService.Register:output_type -> gophkeeper.RegisterResponse
+	4,  // 16: gophkeeper.UserService.Login:output_type -> gophkeeper.LoginResponse
+	6,  // 17: gophkeeper.DataService.AddData:output_type -> gophkeeper.AddDataResponse
+	8,  // 18: gophkeeper.DataService.GetData:output_type -> gophkeeper.GetDataResponse
+	10, // 19: gophkeeper.DataService.EditData:output_type -> gophkeeper.EditDataResponse
+	12, // 20: gophkeeper.DataService.DeleteData:output_type -> gophkeeper.DeleteDataResponse
+	15, // [15:21] is the sub-list for method output_type
+	9,  // [9:15] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_gophkeeper_proto_init() }
@@ -777,18 +1328,26 @@ func file_api_gophkeeper_proto_init() {
 	if File_api_gophkeeper_proto != nil {
 		return
 	}
+	file_api_gophkeeper_proto_msgTypes[17].OneofWrappers = []any{
+		(*Data_LoginData)(nil),
+		(*Data_CardData)(nil),
+		(*Data_TextData)(nil),
+		(*Data_BinaryData)(nil),
+		(*Data_OtpData)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_gophkeeper_proto_rawDesc), len(file_api_gophkeeper_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   14,
+			NumEnums:      1,
+			NumMessages:   18,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_api_gophkeeper_proto_goTypes,
 		DependencyIndexes: file_api_gophkeeper_proto_depIdxs,
+		EnumInfos:         file_api_gophkeeper_proto_enumTypes,
 		MessageInfos:      file_api_gophkeeper_proto_msgTypes,
 	}.Build()
 	File_api_gophkeeper_proto = out.File

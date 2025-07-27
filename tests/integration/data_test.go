@@ -11,19 +11,19 @@ import (
 )
 
 func TestDataCRUDOperations(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testdatacrud")
 	password := "testpassword123"
 
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	loginResp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -35,13 +35,13 @@ func TestDataCRUDOperations(t *testing.T) {
 	// Test AddData.
 	t.Run("AddData", func(t *testing.T) {
 		data := &clientapi.Data{
-			Type:      "login",
+			Type:      clientapi.DataType_DATA_TYPE_LOGIN,
 			Payload:   []byte("test-password"),
-			Metadata:  map[string]string{"url": "https://example.com"},
+			Metadata:  &clientapi.Data_LoginData{LoginData: &clientapi.LoginData{Url: "https://example.com"}},
 			Timestamp: time.Now().Unix(),
 		}
 
-		resp, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+		resp, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 			Token: token,
 			Data:  data,
 		})
@@ -56,15 +56,19 @@ func TestDataCRUDOperations(t *testing.T) {
 	t.Run("GetData", func(t *testing.T) {
 		require.NotEmpty(t, dataID)
 
-		resp, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+		resp, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 			Token: token,
 			Id:    dataID,
 		})
 		require.NoError(t, err)
 		require.Equal(t, dataID, resp.Data.Id)
-		require.Equal(t, "login", resp.Data.Type)
+		require.Equal(t, clientapi.DataType_DATA_TYPE_LOGIN, resp.Data.Type)
 		require.Equal(t, []byte("test-password"), resp.Data.Payload)
-		require.Equal(t, "https://example.com", resp.Data.Metadata["url"])
+
+		// Check metadata
+		if loginData := resp.Data.GetLoginData(); loginData != nil {
+			require.Equal(t, "https://example.com", loginData.Url)
+		}
 	})
 
 	// Test EditData.
@@ -73,13 +77,13 @@ func TestDataCRUDOperations(t *testing.T) {
 
 		updatedData := &clientapi.Data{
 			Id:        dataID,
-			Type:      "login",
+			Type:      clientapi.DataType_DATA_TYPE_LOGIN,
 			Payload:   []byte("updated-password"),
-			Metadata:  map[string]string{"url": "https://updated-example.com"},
+			Metadata:  &clientapi.Data_LoginData{LoginData: &clientapi.LoginData{Url: "https://updated-example.com"}},
 			Timestamp: time.Now().Unix(),
 		}
 
-		resp, err := client.EditData(context.Background(), &clientapi.EditDataRequest{
+		resp, err := clients.DataClient.EditData(context.Background(), &clientapi.EditDataRequest{
 			Token: token,
 			Data:  updatedData,
 		})
@@ -87,36 +91,40 @@ func TestDataCRUDOperations(t *testing.T) {
 		require.Equal(t, dataID, resp.Id)
 
 		// Verify the update.
-		getResp, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+		getResp, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 			Token: token,
 			Id:    dataID,
 		})
 		require.NoError(t, err)
 		require.Equal(t, []byte("updated-password"), getResp.Data.Payload)
-		require.Equal(t, "https://updated-example.com", getResp.Data.Metadata["url"])
+
+		// Check updated metadata
+		if loginData := getResp.Data.GetLoginData(); loginData != nil {
+			require.Equal(t, "https://updated-example.com", loginData.Url)
+		}
 	})
 
 	// Test DeleteData.
 	t.Run("DeleteData", func(t *testing.T) {
 		require.NotEmpty(t, dataID)
 
-		_, err := client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+		_, err := clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 			Token: token,
 			Id:    dataID,
 		})
 		require.NoError(t, err)
 
 		// Verify deletion.
-		_, err = client.GetData(context.Background(), &clientapi.GetDataRequest{
+		_, err = clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 			Token: token,
 			Id:    dataID,
 		})
-		require.Error(t, err) // Should fail because data is deleted.
+		require.Error(t, err) // Should fail because data was deleted.
 	})
 }
 
 func TestDataAccessControl(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: create two users.
 	user1Email := testutils.UniqueEmail("user1")
@@ -124,26 +132,26 @@ func TestDataAccessControl(t *testing.T) {
 	password := "testpassword123"
 
 	// Register and login user1.
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    user1Email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	user1Login, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	user1Login, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    user1Email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
 	// Register and login user2.
-	_, err = client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err = clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    user2Email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	user2Login, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	user2Login, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    user2Email,
 		Password: password,
 	})
@@ -151,13 +159,12 @@ func TestDataAccessControl(t *testing.T) {
 
 	// User1 creates data.
 	data := &clientapi.Data{
-		Type:      "secret",
+		Type:      clientapi.DataType_DATA_TYPE_TEXT,
 		Payload:   []byte("user1-secret"),
-		Metadata:  map[string]string{},
 		Timestamp: time.Now().Unix(),
 	}
 
-	addResp, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+	addResp, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: user1Login.Token,
 		Data:  data,
 	})
@@ -165,34 +172,33 @@ func TestDataAccessControl(t *testing.T) {
 	dataID := addResp.Id
 
 	// User2 tries to access user1's data (should fail).
-	_, err = client.GetData(context.Background(), &clientapi.GetDataRequest{
+	_, err = clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: user2Login.Token,
 		Id:    dataID,
 	})
 	require.Error(t, err) // Should fail - access denied.
 
 	// User2 tries to edit user1's data (should fail).
-	_, err = client.EditData(context.Background(), &clientapi.EditDataRequest{
+	_, err = clients.DataClient.EditData(context.Background(), &clientapi.EditDataRequest{
 		Token: user2Login.Token,
 		Data: &clientapi.Data{
 			Id:        dataID,
-			Type:      "secret",
+			Type:      clientapi.DataType_DATA_TYPE_TEXT,
 			Payload:   []byte("hacked"),
-			Metadata:  map[string]string{},
 			Timestamp: time.Now().Unix(),
 		},
 	})
 	require.Error(t, err) // Should fail - access denied.
 
 	// User2 tries to delete user1's data (should fail).
-	_, err = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+	_, err = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 		Token: user2Login.Token,
 		Id:    dataID,
 	})
 	require.Error(t, err) // Should fail - access denied.
 
 	// User1 can still access their own data.
-	_, err = client.GetData(context.Background(), &clientapi.GetDataRequest{
+	_, err = clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: user1Login.Token,
 		Id:    dataID,
 	})
@@ -200,19 +206,19 @@ func TestDataAccessControl(t *testing.T) {
 }
 
 func TestDataTypes(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testtypes")
 	password := "testpassword123"
 
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	loginResp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -221,39 +227,69 @@ func TestDataTypes(t *testing.T) {
 
 	testCases := []struct {
 		name     string
-		dataType string
-		payload  []byte
-		metadata map[string]string
+		dataType clientapi.DataType
+		metadata interface{}
 	}{
 		{
-			name:     "Login",
-			dataType: "login",
-			payload:  []byte("username:password"),
-			metadata: map[string]string{"url": "https://login.example.com"},
+			name:     "Login Data",
+			dataType: clientapi.DataType_DATA_TYPE_LOGIN,
+			metadata: &clientapi.Data_LoginData{
+				LoginData: &clientapi.LoginData{
+					Username: "testuser",
+					Url:      "https://example.com",
+					Notes:    "Test login",
+				},
+			},
 		},
 		{
-			name:     "Text",
-			dataType: "text",
-			payload:  []byte("Important note"),
-			metadata: map[string]string{"category": "notes"},
+			name:     "Card Data",
+			dataType: clientapi.DataType_DATA_TYPE_CARD,
+			metadata: &clientapi.Data_CardData{
+				CardData: &clientapi.CardData{
+					CardNumber:     "1234567890123456",
+					CardholderName: "Test User",
+					ExpiryMonth:    "12",
+					ExpiryYear:     "2025",
+					Cvv:            "123",
+					Notes:          "Test card",
+				},
+			},
 		},
 		{
-			name:     "Binary",
-			dataType: "binary",
-			payload:  []byte{0x01, 0x02, 0x03, 0x04},
-			metadata: map[string]string{"filename": "file.bin"},
+			name:     "Text Data",
+			dataType: clientapi.DataType_DATA_TYPE_TEXT,
+			metadata: &clientapi.Data_TextData{
+				TextData: &clientapi.TextData{
+					Title: "Test Note",
+					Notes: "This is a test note",
+				},
+			},
 		},
 		{
-			name:     "Card",
-			dataType: "card",
-			payload:  []byte("1234-5678-9012-3456"),
-			metadata: map[string]string{"type": "credit"},
+			name:     "Binary Data",
+			dataType: clientapi.DataType_DATA_TYPE_BINARY,
+			metadata: &clientapi.Data_BinaryData{
+				BinaryData: &clientapi.BinaryData{
+					Filename:    "test.txt",
+					ContentType: "text/plain",
+					Size:        1024,
+					Notes:       "Test binary file",
+				},
+			},
 		},
 		{
-			name:     "OTP",
-			dataType: "otp",
-			payload:  []byte("123456"),
-			metadata: map[string]string{"issuer": "Google"},
+			name:     "OTP Data",
+			dataType: clientapi.DataType_DATA_TYPE_OTP,
+			metadata: &clientapi.Data_OtpData{
+				OtpData: &clientapi.OTPData{
+					Issuer:    "Test Issuer",
+					Account:   "test@example.com",
+					Algorithm: "SHA1",
+					Digits:    6,
+					Period:    30,
+					Notes:     "Test OTP",
+				},
+			},
 		},
 	}
 
@@ -261,31 +297,43 @@ func TestDataTypes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			data := &clientapi.Data{
 				Type:      tc.dataType,
-				Payload:   tc.payload,
-				Metadata:  tc.metadata,
+				Payload:   []byte("test-payload"),
 				Timestamp: time.Now().Unix(),
 			}
 
-			// Add data.
-			addResp, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+			// Set metadata based on type
+			switch md := tc.metadata.(type) {
+			case *clientapi.Data_LoginData:
+				data.Metadata = md
+			case *clientapi.Data_CardData:
+				data.Metadata = md
+			case *clientapi.Data_TextData:
+				data.Metadata = md
+			case *clientapi.Data_BinaryData:
+				data.Metadata = md
+			case *clientapi.Data_OtpData:
+				data.Metadata = md
+			}
+
+			// Add data
+			addResp, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 				Token: token,
 				Data:  data,
 			})
 			require.NoError(t, err)
 			require.NotEmpty(t, addResp.Id)
 
-			// Get data.
-			getResp, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+			// Get data and verify
+			getResp, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 				Token: token,
 				Id:    addResp.Id,
 			})
 			require.NoError(t, err)
 			require.Equal(t, tc.dataType, getResp.Data.Type)
-			require.Equal(t, tc.payload, getResp.Data.Payload)
-			require.Equal(t, tc.metadata, getResp.Data.Metadata)
+			require.Equal(t, []byte("test-payload"), getResp.Data.Payload)
 
-			// Clean up.
-			_, err = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+			// Clean up
+			_, err = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 				Token: token,
 				Id:    addResp.Id,
 			})

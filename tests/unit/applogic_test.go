@@ -11,43 +11,47 @@ import (
 	"google.golang.org/grpc"
 )
 
-// MockGophKeeperClient is a mock implementation of the gRPC client for testing.
-type MockGophKeeperClient struct {
-	registerFunc   func(ctx context.Context, req *clientapi.RegisterRequest) (*clientapi.RegisterResponse, error)
-	loginFunc      func(ctx context.Context, req *clientapi.LoginRequest) (*clientapi.LoginResponse, error)
+// MockUserServiceClient mocks the UserServiceClient interface.
+type MockUserServiceClient struct {
+	registerFunc func(ctx context.Context, req *clientapi.RegisterRequest) (*clientapi.RegisterResponse, error)
+	loginFunc    func(ctx context.Context, req *clientapi.LoginRequest) (*clientapi.LoginResponse, error)
+}
+
+func (m *MockUserServiceClient) Register(ctx context.Context, req *clientapi.RegisterRequest, opts ...grpc.CallOption) (*clientapi.RegisterResponse, error) {
+	return m.registerFunc(ctx, req)
+}
+
+func (m *MockUserServiceClient) Login(ctx context.Context, req *clientapi.LoginRequest, opts ...grpc.CallOption) (*clientapi.LoginResponse, error) {
+	return m.loginFunc(ctx, req)
+}
+
+// MockDataServiceClient mocks the DataServiceClient interface.
+type MockDataServiceClient struct {
 	addDataFunc    func(ctx context.Context, req *clientapi.AddDataRequest) (*clientapi.AddDataResponse, error)
 	getDataFunc    func(ctx context.Context, req *clientapi.GetDataRequest) (*clientapi.GetDataResponse, error)
 	editDataFunc   func(ctx context.Context, req *clientapi.EditDataRequest) (*clientapi.EditDataResponse, error)
 	deleteDataFunc func(ctx context.Context, req *clientapi.DeleteDataRequest) (*clientapi.DeleteDataResponse, error)
 }
 
-func (m *MockGophKeeperClient) Register(ctx context.Context, req *clientapi.RegisterRequest, opts ...grpc.CallOption) (*clientapi.RegisterResponse, error) {
-	return m.registerFunc(ctx, req)
-}
-
-func (m *MockGophKeeperClient) Login(ctx context.Context, req *clientapi.LoginRequest, opts ...grpc.CallOption) (*clientapi.LoginResponse, error) {
-	return m.loginFunc(ctx, req)
-}
-
-func (m *MockGophKeeperClient) AddData(ctx context.Context, req *clientapi.AddDataRequest, opts ...grpc.CallOption) (*clientapi.AddDataResponse, error) {
+func (m *MockDataServiceClient) AddData(ctx context.Context, req *clientapi.AddDataRequest, opts ...grpc.CallOption) (*clientapi.AddDataResponse, error) {
 	return m.addDataFunc(ctx, req)
 }
 
-func (m *MockGophKeeperClient) GetData(ctx context.Context, req *clientapi.GetDataRequest, opts ...grpc.CallOption) (*clientapi.GetDataResponse, error) {
+func (m *MockDataServiceClient) GetData(ctx context.Context, req *clientapi.GetDataRequest, opts ...grpc.CallOption) (*clientapi.GetDataResponse, error) {
 	return m.getDataFunc(ctx, req)
 }
 
-func (m *MockGophKeeperClient) EditData(ctx context.Context, req *clientapi.EditDataRequest, opts ...grpc.CallOption) (*clientapi.EditDataResponse, error) {
+func (m *MockDataServiceClient) EditData(ctx context.Context, req *clientapi.EditDataRequest, opts ...grpc.CallOption) (*clientapi.EditDataResponse, error) {
 	return m.editDataFunc(ctx, req)
 }
 
-func (m *MockGophKeeperClient) DeleteData(ctx context.Context, req *clientapi.DeleteDataRequest, opts ...grpc.CallOption) (*clientapi.DeleteDataResponse, error) {
+func (m *MockDataServiceClient) DeleteData(ctx context.Context, req *clientapi.DeleteDataRequest, opts ...grpc.CallOption) (*clientapi.DeleteDataResponse, error) {
 	return m.deleteDataFunc(ctx, req)
 }
 
 func TestRegisterUser(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockGophKeeperClient{
+	mockClient := &MockUserServiceClient{
 		registerFunc: func(ctx context.Context, req *clientapi.RegisterRequest) (*clientapi.RegisterResponse, error) {
 			assert.Equal(t, "test@example.com", req.Email)
 			assert.Equal(t, "password123", req.Password)
@@ -62,7 +66,7 @@ func TestRegisterUser(t *testing.T) {
 
 func TestLoginUser(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockGophKeeperClient{
+	mockClient := &MockUserServiceClient{
 		loginFunc: func(ctx context.Context, req *clientapi.LoginRequest) (*clientapi.LoginResponse, error) {
 			assert.Equal(t, "test@example.com", req.Email)
 			assert.Equal(t, "password123", req.Password)
@@ -77,10 +81,10 @@ func TestLoginUser(t *testing.T) {
 
 func TestAddData(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockGophKeeperClient{
+	mockClient := &MockDataServiceClient{
 		addDataFunc: func(ctx context.Context, req *clientapi.AddDataRequest) (*clientapi.AddDataResponse, error) {
 			assert.Equal(t, "jwt-token", req.Token)
-			assert.Equal(t, "login", req.Data.Type)
+			assert.Equal(t, clientapi.DataType_DATA_TYPE_LOGIN, req.Data.Type)
 			assert.NotEmpty(t, req.Data.Payload) // Should be encrypted
 			return &clientapi.AddDataResponse{Id: "data-id-123"}, nil
 		},
@@ -93,14 +97,14 @@ func TestAddData(t *testing.T) {
 
 func TestGetData(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockGophKeeperClient{
+	mockClient := &MockDataServiceClient{
 		getDataFunc: func(ctx context.Context, req *clientapi.GetDataRequest) (*clientapi.GetDataResponse, error) {
 			assert.Equal(t, "jwt-token", req.Token)
 			assert.Equal(t, "data-id", req.Id)
 			return &clientapi.GetDataResponse{
 				Data: &clientapi.Data{
 					Id:      "data-id",
-					Type:    "login",
+					Type:    clientapi.DataType_DATA_TYPE_LOGIN,
 					Payload: []byte("encrypted-payload"),
 				},
 			}, nil
@@ -110,17 +114,17 @@ func TestGetData(t *testing.T) {
 	data, decPayload, err := clientapplogic.GetData(ctx, mockClient, "jwt-token", "data-id")
 	require.NoError(t, err)
 	assert.Equal(t, "data-id", data.Id)
-	assert.Equal(t, "login", data.Type)
+	assert.Equal(t, clientapi.DataType_DATA_TYPE_LOGIN, data.Type)
 	assert.NotEmpty(t, decPayload)
 }
 
 func TestEditData(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockGophKeeperClient{
+	mockClient := &MockDataServiceClient{
 		editDataFunc: func(ctx context.Context, req *clientapi.EditDataRequest) (*clientapi.EditDataResponse, error) {
 			assert.Equal(t, "jwt-token", req.Token)
 			assert.Equal(t, "data-id", req.Data.Id)
-			assert.Equal(t, "login", req.Data.Type)
+			assert.Equal(t, clientapi.DataType_DATA_TYPE_LOGIN, req.Data.Type)
 			assert.NotEmpty(t, req.Data.Payload) // Should be encrypted
 			return &clientapi.EditDataResponse{Id: "data-id"}, nil
 		},
@@ -133,7 +137,7 @@ func TestEditData(t *testing.T) {
 
 func TestDeleteData(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockGophKeeperClient{
+	mockClient := &MockDataServiceClient{
 		deleteDataFunc: func(ctx context.Context, req *clientapi.DeleteDataRequest) (*clientapi.DeleteDataResponse, error) {
 			assert.Equal(t, "jwt-token", req.Token)
 			assert.Equal(t, "data-id", req.Id)

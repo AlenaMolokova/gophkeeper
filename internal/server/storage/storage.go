@@ -72,39 +72,6 @@ func DefaultPoolConfig() *PoolConfig {
 	}
 }
 
-// Storage defines the interface for database operations.
-// It provides methods for user management, data storage, and pool monitoring.
-// Implementations should be thread-safe and handle connection pooling internally.
-type Storage interface {
-	// SaveUser creates a new user in the database and returns the user ID.
-	// The email must be unique across all users.
-	SaveUser(ctx context.Context, email, hash string) (string, error)
-
-	// FindUserByEmail retrieves a user by their email address.
-	// Returns an error if the user is not found.
-	FindUserByEmail(ctx context.Context, email string) (models.User, error)
-
-	// SaveData stores encrypted data for a specific user.
-	// Returns the unique data ID for future reference.
-	SaveData(ctx context.Context, userID string, data models.Data) (string, error)
-
-	// FindDataByID retrieves encrypted data by ID for a specific user.
-	// Ensures data isolation between users.
-	FindDataByID(ctx context.Context, userID, dataID string) (models.Data, error)
-
-	// EditData updates existing encrypted data for a user.
-	// The data ID must exist and belong to the specified user.
-	EditData(ctx context.Context, userID string, data models.Data) (string, error)
-
-	// DeleteData removes encrypted data by ID for a specific user.
-	// Returns an error if the data doesn't exist or doesn't belong to the user.
-	DeleteData(ctx context.Context, userID, dataID string) error
-
-	// GetPoolStats returns current connection pool statistics.
-	// Useful for monitoring and debugging connection pool behavior.
-	GetPoolStats() *PoolStats
-}
-
 // PoolStats holds statistics about the connection pool.
 // These metrics help monitor pool health and performance.
 type PoolStats struct {
@@ -203,15 +170,12 @@ func NewPostgresStorageWithConfig(ctx context.Context, dsn string, config *PoolC
 	return &PostgresStorage{pool: pool}, nil
 }
 
-// SaveUser saves a user to the database.
-// The email must be unique across all users. If a user with the same email
-// already exists, the function returns an error.
-//
-// The hash parameter should contain a bcrypt-hashed password.
-// Returns the unique user ID upon successful creation.
+// SaveUser creates a new user in the database and returns the user ID.
+// The email must be unique across all users.
+// If the email already exists, returns an error.
 func (s *PostgresStorage) SaveUser(ctx context.Context, email, hash string) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx, "INSERT INTO users (email, hash) VALUES ($1, $2) RETURNING id", email, hash).Scan(&id)
+	err := s.pool.QueryRow(ctx, SaveUserQuery, email, hash).Scan(&id)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to save user")
 	}
@@ -223,7 +187,7 @@ func (s *PostgresStorage) SaveUser(ctx context.Context, email, hash string) (str
 // If no user is found with the given email, returns an error.
 func (s *PostgresStorage) FindUserByEmail(ctx context.Context, email string) (models.User, error) {
 	var user models.User
-	err := s.pool.QueryRow(ctx, "SELECT id, email, hash FROM users WHERE email = $1", email).Scan(&user.ID, &user.Email, &user.Hash)
+	err := s.pool.QueryRow(ctx, FindUserByEmailQuery, email).Scan(&user.ID, &user.Email, &user.Hash)
 	if err != nil {
 		return models.User{}, errors.Wrap(err, "failed to find user")
 	}
@@ -236,8 +200,7 @@ func (s *PostgresStorage) FindUserByEmail(ctx context.Context, email string) (mo
 // Returns the unique data ID for future reference.
 func (s *PostgresStorage) SaveData(ctx context.Context, userID string, data models.Data) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx, "INSERT INTO data (user_id, type, payload, metadata, timestamp) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-		userID, data.Type, data.Payload, data.Metadata, data.Timestamp).Scan(&id)
+	err := s.pool.QueryRow(ctx, SaveDataQuery, userID, data.Type, data.Payload, data.Metadata, data.Timestamp).Scan(&id)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to save data")
 	}
@@ -249,7 +212,7 @@ func (s *PostgresStorage) SaveData(ctx context.Context, userID string, data mode
 // Returns the encrypted data if found, or an error if not found or access denied.
 func (s *PostgresStorage) FindDataByID(ctx context.Context, userID, dataID string) (models.Data, error) {
 	var data models.Data
-	err := s.pool.QueryRow(ctx, "SELECT id, type, payload, metadata, timestamp FROM data WHERE id = $1 AND user_id = $2", dataID, userID).
+	err := s.pool.QueryRow(ctx, FindDataByIDQuery, dataID, userID).
 		Scan(&data.ID, &data.Type, &data.Payload, &data.Metadata, &data.Timestamp)
 	if err != nil {
 		return models.Data{}, errors.Wrap(err, "failed to find data")
@@ -263,8 +226,7 @@ func (s *PostgresStorage) FindDataByID(ctx context.Context, userID, dataID strin
 // Returns the data ID upon successful update.
 func (s *PostgresStorage) EditData(ctx context.Context, userID string, data models.Data) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx, "UPDATE data SET type=$1, payload=$2, metadata=$3, timestamp=$4 WHERE id=$5 AND user_id=$6 RETURNING id",
-		data.Type, data.Payload, data.Metadata, data.Timestamp, data.ID, userID).Scan(&id)
+	err := s.pool.QueryRow(ctx, EditDataQuery, data.ID, userID, data.Type, data.Payload, data.Metadata, data.Timestamp).Scan(&id)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to edit data")
 	}
@@ -275,7 +237,7 @@ func (s *PostgresStorage) EditData(ctx context.Context, userID string, data mode
 // Ensures data isolation by verifying the data belongs to the specified user.
 // Returns an error if the data doesn't exist or doesn't belong to the user.
 func (s *PostgresStorage) DeleteData(ctx context.Context, userID, dataID string) error {
-	result, err := s.pool.Exec(ctx, "DELETE FROM data WHERE id=$1 AND user_id=$2", dataID, userID)
+	result, err := s.pool.Exec(ctx, DeleteDataQuery, dataID, userID)
 	if err != nil {
 		return errors.Wrap(err, "failed to delete data")
 	}

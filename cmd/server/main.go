@@ -14,10 +14,9 @@ import (
 	"context"
 	"log"
 	"net"
-	"os"
-	"strconv"
 	"time"
 
+	"github.com/AlenaMolokova/gophkeeper/internal/config"
 	"github.com/AlenaMolokova/gophkeeper/internal/server/api"
 	"github.com/AlenaMolokova/gophkeeper/internal/server/auth"
 	"github.com/AlenaMolokova/gophkeeper/internal/server/storage"
@@ -26,61 +25,13 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-// getPoolConfig creates pool configuration from environment variables.
-// It reads database connection pool settings from environment variables
-// and returns a PoolConfig struct with the specified values.
-//
-// Supported environment variables:
-//   - DB_MAX_CONNS: Maximum number of connections (default: 20)
-//   - DB_MIN_CONNS: Minimum number of connections (default: 5)
-//   - DB_MAX_CONN_LIFETIME: Connection lifetime (default: 1h)
-//   - DB_MAX_CONN_IDLE_TIME: Idle connection timeout (default: 30m)
-//   - DB_HEALTH_CHECK_PERIOD: Health check interval (default: 1m)
-//
-// If environment variables are not set or invalid, default values are used.
-func getPoolConfig() *storage.PoolConfig {
-	config := storage.DefaultPoolConfig()
-
-	if maxConns := os.Getenv("DB_MAX_CONNS"); maxConns != "" {
-		if val, err := strconv.ParseInt(maxConns, 10, 32); err == nil {
-			config.MaxConns = int32(val)
-		}
-	}
-
-	if minConns := os.Getenv("DB_MIN_CONNS"); minConns != "" {
-		if val, err := strconv.ParseInt(minConns, 10, 32); err == nil {
-			config.MinConns = int32(val)
-		}
-	}
-
-	if maxLifetime := os.Getenv("DB_MAX_CONN_LIFETIME"); maxLifetime != "" {
-		if val, err := time.ParseDuration(maxLifetime); err == nil {
-			config.MaxConnLifetime = val
-		}
-	}
-
-	if maxIdleTime := os.Getenv("DB_MAX_CONN_IDLE_TIME"); maxIdleTime != "" {
-		if val, err := time.ParseDuration(maxIdleTime); err == nil {
-			config.MaxConnIdleTime = val
-		}
-	}
-
-	if healthCheckPeriod := os.Getenv("DB_HEALTH_CHECK_PERIOD"); healthCheckPeriod != "" {
-		if val, err := time.ParseDuration(healthCheckPeriod); err == nil {
-			config.HealthCheckPeriod = val
-		}
-	}
-
-	return config
-}
-
 // startServer starts the gRPC server.
-func startServer(grpcServer *grpc.Server) {
-	listener, err := net.Listen("tcp", "localhost:50051")
+func startServer(grpcServer *grpc.Server, address string) {
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
-	log.Println("Server started on :50051")
+	log.Printf("Server started on %s", address)
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
@@ -95,7 +46,7 @@ func startServer(grpcServer *grpc.Server) {
 // - Idle connections available for use.
 // - Acquired connections currently in use.
 // - Connections being constructed.
-func logPoolStats(storage storage.Storage) {
+func logPoolStats(storage *storage.PostgresStorage) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
@@ -120,29 +71,32 @@ func logPoolStats(storage storage.Storage) {
 func main() {
 	ctx := context.Background()
 
-	// Check required environment variables first
-	dsn := os.Getenv("DATABASE_DSN")
-	if dsn == "" {
-		log.Fatal("DATABASE_DSN environment variable is not set")
+	// Load configuration
+	cfg, err := config.NewServerConfig()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
-	if len(jwtSecret) == 0 {
-		log.Fatal("JWT_SECRET environment variable is not set")
-	}
-
-	// Load TLS credentials before creating storage
-	creds, err := credentials.NewServerTLSFromFile("cert/server.crt", "cert/server.key")
+	// Load TLS credentials
+	creds, err := credentials.NewServerTLSFromFile(cfg.TLS.CertFile, cfg.TLS.KeyFile)
 	if err != nil {
 		log.Fatalf("Failed to load TLS credentials: %v", err)
 	}
 
-	// Initialize storage with custom pool configuration
-	poolConfig := getPoolConfig()
+	// Create pool configuration from config
+	poolConfig := &storage.PoolConfig{
+		MaxConns:          cfg.Database.MaxConns,
+		MinConns:          cfg.Database.MinConns,
+		MaxConnLifetime:   cfg.Database.MaxConnLifetime,
+		MaxConnIdleTime:   cfg.Database.MaxConnIdleTime,
+		HealthCheckPeriod: cfg.Database.HealthCheckPeriod,
+	}
+
 	log.Printf("Database pool config - MaxConns: %d, MinConns: %d, MaxLifetime: %v, MaxIdleTime: %v, HealthCheckPeriod: %v",
 		poolConfig.MaxConns, poolConfig.MinConns, poolConfig.MaxConnLifetime, poolConfig.MaxConnIdleTime, poolConfig.HealthCheckPeriod)
 
-	storage, err := storage.NewPostgresStorageWithConfig(ctx, dsn, poolConfig)
+	// Initialize storage with custom pool configuration
+	storage, err := storage.NewPostgresStorageWithConfig(ctx, cfg.GetDSN(), poolConfig)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -152,15 +106,17 @@ func main() {
 	go logPoolStats(storage)
 
 	// Initialize auth
-	authService := auth.NewAuth(storage, string(jwtSecret), 24*3600*time.Second)
+	authService := auth.NewAuth(storage, cfg.JWT.Secret, cfg.JWT.TTL)
 
-	// Initialize gRPC server
-	server := api.NewServer(authService, storage, jwtSecret)
+	// Initialize gRPC servers
+	userServer := api.NewUserServer(authService, cfg.GetJWTSecret())
+	dataServer := api.NewDataServer(authService, storage, cfg.GetJWTSecret())
 	grpcServer := grpc.NewServer(grpc.Creds(creds))
 
-	// Register gRPC service
-	clientapi.RegisterGophKeeperServer(grpcServer, server)
+	// Register gRPC services
+	clientapi.RegisterUserServiceServer(grpcServer, userServer)
+	clientapi.RegisterDataServiceServer(grpcServer, dataServer)
 
 	// Start server
-	startServer(grpcServer)
+	startServer(grpcServer, cfg.GetServerAddress())
 }

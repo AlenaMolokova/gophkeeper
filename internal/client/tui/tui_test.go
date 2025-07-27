@@ -11,61 +11,68 @@ import (
 	"google.golang.org/grpc"
 )
 
-// MockGophKeeperClient is a mock implementation for testing.
-type MockGophKeeperClient struct {
-	registerFunc   func(ctx context.Context, req *clientapi.RegisterRequest, opts ...grpc.CallOption) (*clientapi.RegisterResponse, error)
-	loginFunc      func(ctx context.Context, req *clientapi.LoginRequest, opts ...grpc.CallOption) (*clientapi.LoginResponse, error)
+// MockUserServiceClient is a mock implementation for testing.
+type MockUserServiceClient struct {
+	registerFunc func(ctx context.Context, req *clientapi.RegisterRequest, opts ...grpc.CallOption) (*clientapi.RegisterResponse, error)
+	loginFunc    func(ctx context.Context, req *clientapi.LoginRequest, opts ...grpc.CallOption) (*clientapi.LoginResponse, error)
+}
+
+func (m *MockUserServiceClient) Register(ctx context.Context, req *clientapi.RegisterRequest, opts ...grpc.CallOption) (*clientapi.RegisterResponse, error) {
+	return m.registerFunc(ctx, req, opts...)
+}
+
+func (m *MockUserServiceClient) Login(ctx context.Context, req *clientapi.LoginRequest, opts ...grpc.CallOption) (*clientapi.LoginResponse, error) {
+	return m.loginFunc(ctx, req, opts...)
+}
+
+// MockDataServiceClient is a mock implementation for testing.
+type MockDataServiceClient struct {
 	addDataFunc    func(ctx context.Context, req *clientapi.AddDataRequest, opts ...grpc.CallOption) (*clientapi.AddDataResponse, error)
 	getDataFunc    func(ctx context.Context, req *clientapi.GetDataRequest, opts ...grpc.CallOption) (*clientapi.GetDataResponse, error)
 	editDataFunc   func(ctx context.Context, req *clientapi.EditDataRequest, opts ...grpc.CallOption) (*clientapi.EditDataResponse, error)
 	deleteDataFunc func(ctx context.Context, req *clientapi.DeleteDataRequest, opts ...grpc.CallOption) (*clientapi.DeleteDataResponse, error)
 }
 
-func (m *MockGophKeeperClient) Register(ctx context.Context, req *clientapi.RegisterRequest, opts ...grpc.CallOption) (*clientapi.RegisterResponse, error) {
-	return m.registerFunc(ctx, req, opts...)
-}
-
-func (m *MockGophKeeperClient) Login(ctx context.Context, req *clientapi.LoginRequest, opts ...grpc.CallOption) (*clientapi.LoginResponse, error) {
-	return m.loginFunc(ctx, req, opts...)
-}
-
-func (m *MockGophKeeperClient) AddData(ctx context.Context, req *clientapi.AddDataRequest, opts ...grpc.CallOption) (*clientapi.AddDataResponse, error) {
+func (m *MockDataServiceClient) AddData(ctx context.Context, req *clientapi.AddDataRequest, opts ...grpc.CallOption) (*clientapi.AddDataResponse, error) {
 	return m.addDataFunc(ctx, req, opts...)
 }
 
-func (m *MockGophKeeperClient) GetData(ctx context.Context, req *clientapi.GetDataRequest, opts ...grpc.CallOption) (*clientapi.GetDataResponse, error) {
+func (m *MockDataServiceClient) GetData(ctx context.Context, req *clientapi.GetDataRequest, opts ...grpc.CallOption) (*clientapi.GetDataResponse, error) {
 	return m.getDataFunc(ctx, req, opts...)
 }
 
-func (m *MockGophKeeperClient) EditData(ctx context.Context, req *clientapi.EditDataRequest, opts ...grpc.CallOption) (*clientapi.EditDataResponse, error) {
+func (m *MockDataServiceClient) EditData(ctx context.Context, req *clientapi.EditDataRequest, opts ...grpc.CallOption) (*clientapi.EditDataResponse, error) {
 	return m.editDataFunc(ctx, req, opts...)
 }
 
-func (m *MockGophKeeperClient) DeleteData(ctx context.Context, req *clientapi.DeleteDataRequest, opts ...grpc.CallOption) (*clientapi.DeleteDataResponse, error) {
+func (m *MockDataServiceClient) DeleteData(ctx context.Context, req *clientapi.DeleteDataRequest, opts ...grpc.CallOption) (*clientapi.DeleteDataResponse, error) {
 	return m.deleteDataFunc(ctx, req, opts...)
 }
 
 func TestTUIAppCreation(t *testing.T) {
-	mockClient := &MockGophKeeperClient{}
+	mockUserClient := &MockUserServiceClient{}
+	mockDataClient := &MockDataServiceClient{}
 
 	app := &TUIApp{
-		client: mockClient,
+		userClient: mockUserClient,
+		dataClient: mockDataClient,
 	}
 
 	require.NotNil(t, app)
-	assert.Equal(t, mockClient, app.client)
+	assert.Equal(t, mockUserClient, app.userClient)
+	assert.Equal(t, mockDataClient, app.dataClient)
 }
 
 func TestHandleRegister(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockUserClient := &MockUserServiceClient{
 		registerFunc: func(ctx context.Context, req *clientapi.RegisterRequest, opts ...grpc.CallOption) (*clientapi.RegisterResponse, error) {
 			return &clientapi.RegisterResponse{Token: "test-jwt-token"}, nil
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		userClient: mockUserClient,
+		app:        tview.NewApplication(),
 	}
 
 	err := app.handleRegister("test@example.com", "password123")
@@ -73,15 +80,15 @@ func TestHandleRegister(t *testing.T) {
 }
 
 func TestHandleRegisterError(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockUserClient := &MockUserServiceClient{
 		registerFunc: func(ctx context.Context, req *clientapi.RegisterRequest, opts ...grpc.CallOption) (*clientapi.RegisterResponse, error) {
 			return nil, assert.AnError
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		userClient: mockUserClient,
+		app:        tview.NewApplication(),
 	}
 
 	err := app.handleRegister("test@example.com", "password123")
@@ -89,15 +96,15 @@ func TestHandleRegisterError(t *testing.T) {
 }
 
 func TestHandleLogin(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockUserClient := &MockUserServiceClient{
 		loginFunc: func(ctx context.Context, req *clientapi.LoginRequest, opts ...grpc.CallOption) (*clientapi.LoginResponse, error) {
 			return &clientapi.LoginResponse{Token: "test-jwt-token"}, nil
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		userClient: mockUserClient,
+		app:        tview.NewApplication(),
 	}
 
 	err := app.handleLogin("test@example.com", "password123")
@@ -105,15 +112,15 @@ func TestHandleLogin(t *testing.T) {
 }
 
 func TestHandleLoginError(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockUserClient := &MockUserServiceClient{
 		loginFunc: func(ctx context.Context, req *clientapi.LoginRequest, opts ...grpc.CallOption) (*clientapi.LoginResponse, error) {
 			return nil, assert.AnError
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		userClient: mockUserClient,
+		app:        tview.NewApplication(),
 	}
 
 	err := app.handleLogin("test@example.com", "password123")
@@ -121,19 +128,21 @@ func TestHandleLoginError(t *testing.T) {
 }
 
 func TestHandleAddData(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockDataClient := &MockDataServiceClient{
 		addDataFunc: func(ctx context.Context, req *clientapi.AddDataRequest, opts ...grpc.CallOption) (*clientapi.AddDataResponse, error) {
-			return &clientapi.AddDataResponse{Id: "test-data-id"}, nil
+			assert.Equal(t, "jwt-token", req.Token)
+			assert.Equal(t, clientapi.DataType_DATA_TYPE_LOGIN, req.Data.Type)
+			return &clientapi.AddDataResponse{Id: "data-id"}, nil
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		dataClient: mockDataClient,
+		app:        tview.NewApplication(),
 	}
 
 	values := map[string]string{
-		"JWT":     "test-jwt",
+		"JWT":     "jwt-token",
 		"Type":    "login",
 		"Payload": "test-payload",
 	}
@@ -143,19 +152,19 @@ func TestHandleAddData(t *testing.T) {
 }
 
 func TestHandleAddDataError(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockDataClient := &MockDataServiceClient{
 		addDataFunc: func(ctx context.Context, req *clientapi.AddDataRequest, opts ...grpc.CallOption) (*clientapi.AddDataResponse, error) {
 			return nil, assert.AnError
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		dataClient: mockDataClient,
+		app:        tview.NewApplication(),
 	}
 
 	values := map[string]string{
-		"JWT":     "test-jwt",
+		"JWT":     "jwt-token",
 		"Type":    "login",
 		"Payload": "test-payload",
 	}
@@ -165,12 +174,14 @@ func TestHandleAddDataError(t *testing.T) {
 }
 
 func TestHandleGetData(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockDataClient := &MockDataServiceClient{
 		getDataFunc: func(ctx context.Context, req *clientapi.GetDataRequest, opts ...grpc.CallOption) (*clientapi.GetDataResponse, error) {
+			assert.Equal(t, "jwt-token", req.Token)
+			assert.Equal(t, "data-id", req.Id)
 			return &clientapi.GetDataResponse{
 				Data: &clientapi.Data{
-					Id:      "test-data-id",
-					Type:    "login",
+					Id:      "data-id",
+					Type:    clientapi.DataType_DATA_TYPE_LOGIN,
 					Payload: []byte("encrypted-payload"),
 				},
 			}, nil
@@ -178,13 +189,13 @@ func TestHandleGetData(t *testing.T) {
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		dataClient: mockDataClient,
+		app:        tview.NewApplication(),
 	}
 
 	values := map[string]string{
-		"JWT": "test-jwt",
-		"ID":  "test-data-id",
+		"JWT": "jwt-token",
+		"ID":  "data-id",
 	}
 
 	err := app.handleGetData(values)
@@ -192,20 +203,20 @@ func TestHandleGetData(t *testing.T) {
 }
 
 func TestHandleGetDataError(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockDataClient := &MockDataServiceClient{
 		getDataFunc: func(ctx context.Context, req *clientapi.GetDataRequest, opts ...grpc.CallOption) (*clientapi.GetDataResponse, error) {
 			return nil, assert.AnError
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		dataClient: mockDataClient,
+		app:        tview.NewApplication(),
 	}
 
 	values := map[string]string{
-		"JWT": "test-jwt",
-		"ID":  "test-data-id",
+		"JWT": "jwt-token",
+		"ID":  "data-id",
 	}
 
 	err := app.handleGetData(values)
@@ -213,22 +224,25 @@ func TestHandleGetDataError(t *testing.T) {
 }
 
 func TestHandleEditData(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockDataClient := &MockDataServiceClient{
 		editDataFunc: func(ctx context.Context, req *clientapi.EditDataRequest, opts ...grpc.CallOption) (*clientapi.EditDataResponse, error) {
-			return &clientapi.EditDataResponse{Id: "test-data-id"}, nil
+			assert.Equal(t, "jwt-token", req.Token)
+			assert.Equal(t, "data-id", req.Data.Id)
+			assert.Equal(t, clientapi.DataType_DATA_TYPE_LOGIN, req.Data.Type)
+			return &clientapi.EditDataResponse{Id: "data-id"}, nil
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		dataClient: mockDataClient,
+		app:        tview.NewApplication(),
 	}
 
 	values := map[string]string{
-		"JWT":     "test-jwt",
-		"ID":      "test-data-id",
+		"JWT":     "jwt-token",
+		"ID":      "data-id",
 		"Type":    "login",
-		"Payload": "updated-payload",
+		"Payload": "new-payload",
 	}
 
 	err := app.handleEditData(values)
@@ -236,22 +250,22 @@ func TestHandleEditData(t *testing.T) {
 }
 
 func TestHandleEditDataError(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockDataClient := &MockDataServiceClient{
 		editDataFunc: func(ctx context.Context, req *clientapi.EditDataRequest, opts ...grpc.CallOption) (*clientapi.EditDataResponse, error) {
 			return nil, assert.AnError
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		dataClient: mockDataClient,
+		app:        tview.NewApplication(),
 	}
 
 	values := map[string]string{
-		"JWT":     "test-jwt",
-		"ID":      "test-data-id",
+		"JWT":     "jwt-token",
+		"ID":      "data-id",
 		"Type":    "login",
-		"Payload": "updated-payload",
+		"Payload": "new-payload",
 	}
 
 	err := app.handleEditData(values)
@@ -259,20 +273,22 @@ func TestHandleEditDataError(t *testing.T) {
 }
 
 func TestHandleDeleteData(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockDataClient := &MockDataServiceClient{
 		deleteDataFunc: func(ctx context.Context, req *clientapi.DeleteDataRequest, opts ...grpc.CallOption) (*clientapi.DeleteDataResponse, error) {
+			assert.Equal(t, "jwt-token", req.Token)
+			assert.Equal(t, "data-id", req.Id)
 			return &clientapi.DeleteDataResponse{}, nil
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		dataClient: mockDataClient,
+		app:        tview.NewApplication(),
 	}
 
 	values := map[string]string{
-		"JWT": "test-jwt",
-		"ID":  "test-data-id",
+		"JWT": "jwt-token",
+		"ID":  "data-id",
 	}
 
 	err := app.handleDeleteData(values)
@@ -280,20 +296,20 @@ func TestHandleDeleteData(t *testing.T) {
 }
 
 func TestHandleDeleteDataError(t *testing.T) {
-	mockClient := &MockGophKeeperClient{
+	mockDataClient := &MockDataServiceClient{
 		deleteDataFunc: func(ctx context.Context, req *clientapi.DeleteDataRequest, opts ...grpc.CallOption) (*clientapi.DeleteDataResponse, error) {
 			return nil, assert.AnError
 		},
 	}
 
 	app := &TUIApp{
-		client: mockClient,
-		app:    tview.NewApplication(),
+		dataClient: mockDataClient,
+		app:        tview.NewApplication(),
 	}
 
 	values := map[string]string{
-		"JWT": "test-jwt",
-		"ID":  "test-data-id",
+		"JWT": "jwt-token",
+		"ID":  "data-id",
 	}
 
 	err := app.handleDeleteData(values)

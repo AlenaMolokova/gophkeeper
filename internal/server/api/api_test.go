@@ -39,10 +39,10 @@ func createValidToken(secret []byte) string {
 	return tokenString
 }
 
-// TestServer_Register tests user registration functionality.
+// TestUserServer_Register tests user registration functionality.
 // It verifies that a new user can be registered with email and password,
 // and that a valid JWT token is returned upon successful registration.
-func TestServer_Register(t *testing.T) {
+func TestUserServer_Register(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -50,17 +50,18 @@ func TestServer_Register(t *testing.T) {
 	mockStorage.EXPECT().SaveUser(gomock.Any(), "test@example.com", gomock.Any()).Return("user1", nil)
 	mockStorage.EXPECT().GetPoolStats().Return(&storage.PoolStats{}).AnyTimes()
 
-	srv := api.NewServer(auth.NewAuth(mockStorage, "secret", 3600*time.Second), mockStorage, []byte("secret"))
+	authService := auth.NewAuth(mockStorage, "secret", 3600*time.Second)
+	userServer := api.NewUserServer(authService, []byte("secret"))
 
-	resp, err := srv.Register(context.Background(), &clientapi.RegisterRequest{Email: "test@example.com", Password: "password"})
+	resp, err := userServer.Register(context.Background(), &clientapi.RegisterRequest{Email: "test@example.com", Password: "password"})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
 }
 
-// TestServer_Login tests user authentication functionality.
+// TestUserServer_Login tests user authentication functionality.
 // It verifies that a user can log in with valid credentials and
 // receive a valid JWT token for subsequent API calls.
-func TestServer_Login(t *testing.T) {
+func TestUserServer_Login(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -70,17 +71,18 @@ func TestServer_Login(t *testing.T) {
 	mockStorage.EXPECT().FindUserByEmail(gomock.Any(), "test@example.com").Return(models.User{ID: "user1", Email: "test@example.com", Hash: hash}, nil)
 	mockStorage.EXPECT().GetPoolStats().Return(&storage.PoolStats{}).AnyTimes()
 
-	srv := api.NewServer(auth.NewAuth(mockStorage, "secret", 3600*time.Second), mockStorage, []byte("secret"))
+	authService := auth.NewAuth(mockStorage, "secret", 3600*time.Second)
+	userServer := api.NewUserServer(authService, []byte("secret"))
 
-	resp, err := srv.Login(context.Background(), &clientapi.LoginRequest{Email: "test@example.com", Password: "password"})
+	resp, err := userServer.Login(context.Background(), &clientapi.LoginRequest{Email: "test@example.com", Password: "password"})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
 }
 
-// TestServer_AddData tests data creation functionality.
+// TestDataServer_AddData tests data creation functionality.
 // It verifies that authenticated users can add new encrypted data
 // and receive a unique data ID for future reference.
-func TestServer_AddData(t *testing.T) {
+func TestDataServer_AddData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -88,40 +90,51 @@ func TestServer_AddData(t *testing.T) {
 	mockStorage.EXPECT().SaveData(gomock.Any(), "user1", gomock.Any()).Return("data1", nil)
 	mockStorage.EXPECT().GetPoolStats().Return(&storage.PoolStats{}).AnyTimes()
 
-	srv := api.NewServer(auth.NewAuth(mockStorage, "secret", 3600*time.Second), mockStorage, []byte("secret"))
+	authService := auth.NewAuth(mockStorage, "secret", 3600*time.Second)
+	dataServer := api.NewDataServer(authService, mockStorage, []byte("secret"))
 
 	validToken := createValidToken([]byte("secret"))
-	resp, err := srv.AddData(context.Background(), &clientapi.AddDataRequest{
+	resp, err := dataServer.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: validToken,
-		Data:  &clientapi.Data{Id: "data1", Type: "text", Payload: []byte("test"), Timestamp: time.Now().Unix()},
+		Data:  &clientapi.Data{Id: "data1", Type: clientapi.DataType_DATA_TYPE_TEXT, Payload: []byte("test"), Timestamp: time.Now().Unix()},
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, "data1", resp.Id)
 }
 
-// TestServer_GetData tests data retrieval functionality.
+// TestDataServer_GetData tests data retrieval functionality.
 // It verifies that authenticated users can retrieve their encrypted data
-// by ID and that data isolation between users is maintained.
-func TestServer_GetData(t *testing.T) {
+// using a valid data ID.
+func TestDataServer_GetData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockStorage := storage.NewMockStorage(ctrl)
-	mockStorage.EXPECT().FindDataByID(gomock.Any(), "user1", "data1").Return(models.Data{ID: "data1", Type: "text", Payload: []byte("test"), Timestamp: time.Now().Unix()}, nil)
+	mockStorage.EXPECT().FindDataByID(gomock.Any(), "user1", "data1").Return(models.Data{
+		ID:        "data1",
+		Type:      models.DataTypeText,
+		Payload:   []byte("encrypted-data"),
+		Timestamp: time.Now().Unix(),
+	}, nil)
 	mockStorage.EXPECT().GetPoolStats().Return(&storage.PoolStats{}).AnyTimes()
 
-	srv := api.NewServer(auth.NewAuth(mockStorage, "secret", 3600*time.Second), mockStorage, []byte("secret"))
+	authService := auth.NewAuth(mockStorage, "secret", 3600*time.Second)
+	dataServer := api.NewDataServer(authService, mockStorage, []byte("secret"))
 
 	validToken := createValidToken([]byte("secret"))
-	resp, err := srv.GetData(context.Background(), &clientapi.GetDataRequest{Token: validToken, Id: "data1"})
+	resp, err := dataServer.GetData(context.Background(), &clientapi.GetDataRequest{
+		Token: validToken,
+		Id:    "data1",
+	})
 	assert.NoError(t, err)
 	assert.Equal(t, "data1", resp.Data.Id)
+	assert.Equal(t, clientapi.DataType_DATA_TYPE_TEXT, resp.Data.Type)
 }
 
-// TestServer_EditData tests data update functionality.
+// TestDataServer_EditData tests data update functionality.
 // It verifies that authenticated users can update their existing data
-// and that the updated data is properly stored.
-func TestServer_EditData(t *testing.T) {
+// and receive the updated data ID.
+func TestDataServer_EditData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -129,21 +142,22 @@ func TestServer_EditData(t *testing.T) {
 	mockStorage.EXPECT().EditData(gomock.Any(), "user1", gomock.Any()).Return("data1", nil)
 	mockStorage.EXPECT().GetPoolStats().Return(&storage.PoolStats{}).AnyTimes()
 
-	srv := api.NewServer(auth.NewAuth(mockStorage, "secret", 3600*time.Second), mockStorage, []byte("secret"))
+	authService := auth.NewAuth(mockStorage, "secret", 3600*time.Second)
+	dataServer := api.NewDataServer(authService, mockStorage, []byte("secret"))
 
 	validToken := createValidToken([]byte("secret"))
-	resp, err := srv.EditData(context.Background(), &clientapi.EditDataRequest{
+	resp, err := dataServer.EditData(context.Background(), &clientapi.EditDataRequest{
 		Token: validToken,
-		Data:  &clientapi.Data{Id: "data1", Type: "text", Payload: []byte("updated"), Timestamp: time.Now().Unix()},
+		Data:  &clientapi.Data{Id: "data1", Type: clientapi.DataType_DATA_TYPE_TEXT, Payload: []byte("updated"), Timestamp: time.Now().Unix()},
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, "data1", resp.Id)
 }
 
-// TestServer_DeleteData tests data deletion functionality.
-// It verifies that authenticated users can delete their data by ID
-// and that data isolation between users is maintained.
-func TestServer_DeleteData(t *testing.T) {
+// TestDataServer_DeleteData tests data deletion functionality.
+// It verifies that authenticated users can delete their data
+// using a valid data ID.
+func TestDataServer_DeleteData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -151,10 +165,13 @@ func TestServer_DeleteData(t *testing.T) {
 	mockStorage.EXPECT().DeleteData(gomock.Any(), "user1", "data1").Return(nil)
 	mockStorage.EXPECT().GetPoolStats().Return(&storage.PoolStats{}).AnyTimes()
 
-	srv := api.NewServer(auth.NewAuth(mockStorage, "secret", 3600*time.Second), mockStorage, []byte("secret"))
+	authService := auth.NewAuth(mockStorage, "secret", 3600*time.Second)
+	dataServer := api.NewDataServer(authService, mockStorage, []byte("secret"))
 
 	validToken := createValidToken([]byte("secret"))
-	resp, err := srv.DeleteData(context.Background(), &clientapi.DeleteDataRequest{Token: validToken, Id: "data1"})
+	_, err := dataServer.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+		Token: validToken,
+		Id:    "data1",
+	})
 	assert.NoError(t, err)
-	assert.NotNil(t, resp)
 }

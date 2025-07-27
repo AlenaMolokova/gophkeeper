@@ -12,19 +12,19 @@ import (
 )
 
 func TestEncryptionSecurity(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testencryption")
 	password := "testpassword123"
 
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	loginResp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -34,20 +34,19 @@ func TestEncryptionSecurity(t *testing.T) {
 	// Test that data is encrypted (payload should not be plaintext).
 	sensitiveData := []byte("super-secret-password-123")
 	data := &clientapi.Data{
-		Type:      "login",
+		Type:      clientapi.DataType_DATA_TYPE_LOGIN,
 		Payload:   sensitiveData,
-		Metadata:  map[string]string{},
 		Timestamp: time.Now().Unix(),
 	}
 
-	addResp, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+	addResp, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: token,
 		Data:  data,
 	})
 	require.NoError(t, err)
 
 	// Get the data back.
-	getResp, err := client.GetData(context.Background(), &clientapi.GetDataRequest{
+	getResp, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 		Token: token,
 		Id:    addResp.Id,
 	})
@@ -57,7 +56,7 @@ func TestEncryptionSecurity(t *testing.T) {
 	require.Equal(t, sensitiveData, getResp.Data.Payload)
 
 	// Clean up.
-	_, _ = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+	_, _ = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 		Token: token,
 		Id:    addResp.Id,
 	})
@@ -65,14 +64,14 @@ func TestEncryptionSecurity(t *testing.T) {
 
 func TestTLSConnection(t *testing.T) {
 	// Test that we can establish a TLS connection.
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// If we get here without TLS errors, the connection is working.
 	// Try a simple operation to verify the connection.
 	email := testutils.UniqueEmail("testtls")
 	password := "testpassword123"
 
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -86,19 +85,19 @@ func TestTLSConnection(t *testing.T) {
 }
 
 func TestTokenExpiration(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testexpiration")
 	password := "testpassword123"
 
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	loginResp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
@@ -106,117 +105,79 @@ func TestTokenExpiration(t *testing.T) {
 	token := loginResp.Token
 
 	// Test that token works immediately.
-	data := &clientapi.Data{
-		Type:      "test",
-		Payload:   []byte("test data"),
-		Metadata:  map[string]string{},
-		Timestamp: time.Now().Unix(),
-	}
-
-	addResp, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+	_, err = clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 		Token: token,
-		Data:  data,
+		Data: &clientapi.Data{
+			Type:      clientapi.DataType_DATA_TYPE_TEXT,
+			Payload:   []byte("test data"),
+			Timestamp: time.Now().Unix(),
+		},
 	})
 	require.NoError(t, err)
 
-	// Clean up.
-	_, _ = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
-		Token: token,
-		Id:    addResp.Id,
-	})
+	// Note: We can't easily test actual token expiration in unit tests
+	// because it depends on server configuration and time.
+	// This test verifies that tokens work correctly when valid.
 }
 
 func TestInputValidation(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
-	// Setup: register and login user.
-	email := testutils.UniqueEmail("testvalidation")
-	password := "testpassword123"
-
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
-		Email:    email,
-		Password: password,
+	// Test registration with invalid email.
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
+		Email:    "invalid-email",
+		Password: "password123",
 	})
-	require.NoError(t, err)
+	require.Error(t, err) // Should fail with invalid email.
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
-		Email:    email,
-		Password: password,
+	// Test registration with empty password.
+	_, err = clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
+		Email:    "test@example.com",
+		Password: "",
 	})
-	require.NoError(t, err)
-	token := loginResp.Token
+	require.Error(t, err) // Should fail with empty password.
 
-	// Test with empty token.
-	_, err = client.AddData(context.Background(), &clientapi.AddDataRequest{
-		Token: "",
-		Data: &clientapi.Data{
-			Type:      "test",
-			Payload:   []byte("test data"),
-			Metadata:  map[string]string{},
-			Timestamp: time.Now().Unix(),
-		},
+	// Test login with non-existent user.
+	_, err = clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
+		Email:    "nonexistent@example.com",
+		Password: "password123",
 	})
-	require.Error(t, err) // Should fail with empty token.
-
-	// Test with invalid token.
-	_, err = client.AddData(context.Background(), &clientapi.AddDataRequest{
-		Token: "invalid-token-format",
-		Data: &clientapi.Data{
-			Type:      "test",
-			Payload:   []byte("test data"),
-			Metadata:  map[string]string{},
-			Timestamp: time.Now().Unix(),
-		},
-	})
-	require.Error(t, err) // Should fail with invalid token.
-
-	// Test with empty data type.
-	_, _ = client.AddData(context.Background(), &clientapi.AddDataRequest{
-		Token: token,
-		Data: &clientapi.Data{
-			Type:      "",
-			Payload:   []byte("test data"),
-			Metadata:  map[string]string{},
-			Timestamp: time.Now().Unix(),
-		},
-	})
-	// This might succeed depending on server validation, but we test the behavior.
+	require.Error(t, err) // Should fail with non-existent user.
 }
 
 func TestConcurrentAccess(t *testing.T) {
-	client := testutils.SetupTestClient(t)
+	clients := testutils.SetupTestClients(t)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testconcurrent")
 	password := "testpassword123"
 
-	_, err := client.Register(context.Background(), &clientapi.RegisterRequest{
+	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 
-	loginResp, err := client.Login(context.Background(), &clientapi.LoginRequest{
+	loginResp, err := clients.UserClient.Login(context.Background(), &clientapi.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)
 	token := loginResp.Token
 
-	// Test concurrent data access.
-	const numGoroutines = 10
-	results := make(chan error, numGoroutines)
+	// Test concurrent data operations.
+	const numOperations = 10
+	results := make(chan error, numOperations)
 
-	for i := 0; i < numGoroutines; i++ {
-		go func(id int) {
+	for i := 0; i < numOperations; i++ {
+		go func(index int) {
 			data := &clientapi.Data{
-				Type:      "concurrent",
-				Payload:   []byte(fmt.Sprintf("data-%d", id)),
-				Metadata:  map[string]string{},
+				Type:      clientapi.DataType_DATA_TYPE_TEXT,
+				Payload:   []byte(fmt.Sprintf("concurrent-data-%d", index)),
 				Timestamp: time.Now().Unix(),
 			}
 
-			addResp, err := client.AddData(context.Background(), &clientapi.AddDataRequest{
+			addResp, err := clients.DataClient.AddData(context.Background(), &clientapi.AddDataRequest{
 				Token: token,
 				Data:  data,
 			})
@@ -225,8 +186,8 @@ func TestConcurrentAccess(t *testing.T) {
 				return
 			}
 
-			// Get the data back.
-			_, err = client.GetData(context.Background(), &clientapi.GetDataRequest{
+			// Verify the data was added correctly.
+			getResp, err := clients.DataClient.GetData(context.Background(), &clientapi.GetDataRequest{
 				Token: token,
 				Id:    addResp.Id,
 			})
@@ -235,18 +196,23 @@ func TestConcurrentAccess(t *testing.T) {
 				return
 			}
 
+			if string(getResp.Data.Payload) != fmt.Sprintf("concurrent-data-%d", index) {
+				results <- fmt.Errorf("data mismatch for index %d", index)
+				return
+			}
+
 			// Clean up.
-			_, _ = client.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
+			_, err = clients.DataClient.DeleteData(context.Background(), &clientapi.DeleteDataRequest{
 				Token: token,
 				Id:    addResp.Id,
 			})
-			results <- nil
+			results <- err
 		}(i)
 	}
 
-	// Collect results.
-	for i := 0; i < numGoroutines; i++ {
+	// Wait for all operations to complete.
+	for i := 0; i < numOperations; i++ {
 		err := <-results
-		require.NoError(t, err)
+		require.NoError(t, err, "Concurrent operation %d failed", i)
 	}
 }
