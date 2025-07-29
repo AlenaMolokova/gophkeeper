@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+option go_package = "github.com/AlenaMolokova/gophkeeper/pkg/client/api;client";
+
+package gophkeeper;
+
+// UserService handles user authentication and registration
+service UserService {
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    rpc Login(LoginRequest) returns (LoginResponse);
+}
+
+// DataService handles data storage and retrieval operations
+service DataService {
+    rpc AddData(AddDataRequest) returns (AddDataResponse);
+    rpc GetData(GetDataRequest) returns (GetDataResponse);
+    rpc EditData(EditDataRequest) returns (EditDataResponse);
+    rpc DeleteData(DeleteDataRequest) returns (DeleteDataResponse);
+}
+
+// DataType represents the type of stored data
+enum DataType {
+    DATA_TYPE_UNSPECIFIED = 0;
+    DATA_TYPE_LOGIN = 1;
+    DATA_TYPE_TEXT = 2;
+    DATA_TYPE_BINARY = 3;
+    DATA_TYPE_CARD = 4;
+    DATA_TYPE_OTP = 5;
+}
+
+message RegisterRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message RegisterResponse {
+    string token = 1;
+}
+
+message LoginRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message LoginResponse {
+    string token = 1;
+}
+
+message AddDataRequest {
+    string token = 1;
+    Data data = 2;
+}
+
+message AddDataResponse {
+    string id = 1;
+}
+
+message GetDataRequest {
+    string token = 1;
+    string id = 2;
+}
+
+message GetDataResponse {
+    Data data = 1;
+}
+
+message EditDataRequest {
+    string token = 1;
+    Data data = 2;
+}
+
+message EditDataResponse {
+    string id = 1;
+}
+
+message DeleteDataRequest {
+    string token = 1;
+    string id = 2;
+}
+
+message DeleteDataResponse {}
+
+// LoginData represents login credentials metadata
+message LoginData {
+    string username = 1;
+    string url = 2;
+    string notes = 3;
+}
+
+// CardData represents credit card metadata
+message CardData {
+    string card_number = 1;
+    string cardholder_name = 2;
+    string expiry_month = 3;
+    string expiry_year = 4;
+    string cvv = 5;
+    string notes = 6;
+}
+
+// TextData represents text data metadata
+message TextData {
+    string title = 1;
+    string notes = 2;
+}
+
+// BinaryData represents binary data metadata
+message BinaryData {
+    string filename = 1;
+    string content_type = 2;
+    int64 size = 3;
+    string notes = 4;
+}
+
+// OTPData represents OTP metadata
+message OTPData {
+    string issuer = 1;
+    string account = 2;
+    string algorithm = 3;
+    int32 digits = 4;
+    int32 period = 5;
+    string notes = 6;
+}
+
+message Data {
+    string id = 1;
+    DataType type = 2;
+    bytes payload = 3; // Encrypted data
+    oneof metadata {
+        LoginData login_data = 4;
+        CardData card_data = 5;
+        TextData text_data = 6;
+        BinaryData binary_data = 7;
+        OTPData otp_data = 8;
+    }
+    int64 timestamp = 9; // For synchronization
+}

@@ -1,0 +1,35 @@
+# Go build
+/bin/
+/obj/
+/*.exe
+*.out
+*.test
+
+# Dependency directories
+vendor/
+
+# IDE / editor files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Test coverage
+coverage.out
+
+# Testcontainers
+testcontainers.properties
+coverage
+
+# Log files
+*.log
+
+# Analysis and documentation files
+FINAL_ANALYSIS.md
+PROJECT_REVIEW.md
+log.md
+TEST_COMMANDS.md
+POOL_IMPLEMENTATION.md
+
+# Scripts
+start-server.ps1
