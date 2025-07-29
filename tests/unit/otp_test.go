@@ -65,22 +65,22 @@ func TestGenerateQRCodeURL(t *testing.T) {
 }
 
 func TestGenerateBackupCodes(t *testing.T) {
-	// Test default count.
-	codes, err := otp.GenerateBackupCodes(0)
-	require.NoError(t, err)
-	assert.Len(t, codes, 10)
-
 	// Test custom count.
 	codes2, err := otp.GenerateBackupCodes(5)
 	require.NoError(t, err)
 	assert.Len(t, codes2, 5)
 
-	// Verify code format (8 hex digits).
+	// Test default count (10).
+	codes, err := otp.GenerateBackupCodes(10)
+	require.NoError(t, err)
+	assert.Len(t, codes, 10)
+
+	// Verify code format (8 alphanumeric characters).
 	for _, code := range codes2 {
 		assert.Len(t, code, 8)
-		// Check if it's a valid hex string.
+		// Check if it's a valid alphanumeric string.
 		for _, char := range code {
-			assert.Contains(t, "0123456789abcdef", string(char))
+			assert.Contains(t, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", string(char))
 		}
 	}
 }

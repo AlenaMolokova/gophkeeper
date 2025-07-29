@@ -8,21 +8,9 @@
 package api
 
 import (
-	"context"
-
 	"github.com/AlenaMolokova/gophkeeper/internal/server/auth"
-	"github.com/AlenaMolokova/gophkeeper/internal/shared/models"
 	clientapi "github.com/AlenaMolokova/gophkeeper/pkg/client/api"
 )
-
-// DataStorage defines the interface for data storage operations.
-// This interface is defined where it's used (next to the consumer).
-type DataStorage interface {
-	SaveData(ctx context.Context, userID string, data models.Data) (string, error)
-	FindDataByID(ctx context.Context, userID, dataID string) (models.Data, error)
-	EditData(ctx context.Context, userID string, data models.Data) (string, error)
-	DeleteData(ctx context.Context, userID, dataID string) error
-}
 
 // UserServer implements the UserService gRPC service.
 type UserServer struct {
@@ -35,7 +23,8 @@ type UserServer struct {
 type DataServer struct {
 	clientapi.UnimplementedDataServiceServer
 	auth      *auth.Auth
-	storage   DataStorage
+	reader    DataReader
+	writer    DataWriter
 	jwtSecret []byte
 }
 
@@ -51,7 +40,8 @@ func NewUserServer(auth *auth.Auth, jwtSecret []byte) *UserServer {
 func NewDataServer(auth *auth.Auth, storage DataStorage, jwtSecret []byte) *DataServer {
 	return &DataServer{
 		auth:      auth,
-		storage:   storage,
+		reader:    storage,
+		writer:    storage,
 		jwtSecret: jwtSecret,
 	}
 }

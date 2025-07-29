@@ -1,0 +1,173 @@
+name: Integration Tests with Testcontainers
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  integration-tests:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      # Docker service for Testcontainers
+      docker:
+        image: docker:24.0.5
+        options: >-
+          --health-cmd "docker info"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 2376:2376
+        env:
+          DOCKER_TLS_CERTDIR: /certs
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+        cache: true
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Start Docker daemon
+      run: |
+        sudo systemctl start docker
+        sudo usermod -a -G docker $USER
+        newgrp docker
+
+    - name: Verify Docker
+      run: |
+        docker version
+        docker info
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run unit tests
+      run: go test -v -race ./tests/unit/...
+
+    - name: Run integration tests
+      run: |
+        go test -v -race -timeout 10m ./tests/integration/...
+      env:
+        # Testcontainers configuration
+        TESTCONTAINERS_RYUK_DISABLED: true
+        TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
+
+    - name: Run parallel integration tests
+      run: |
+        go test -v -race -timeout 15m ./tests/integration/parallel_test.go
+      env:
+        TESTCONTAINERS_RYUK_DISABLED: true
+        TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
+
+    - name: Generate test coverage
+      run: |
+        go test -v -coverprofile=coverage.out -covermode=atomic ./tests/integration/...
+        go tool cover -html=coverage.out -o coverage.html
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.out
+        flags: integration-tests
+        name: integration-tests-coverage
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          coverage.out
+          coverage.html
+        retention-days: 30
+
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    
+    services:
+      docker:
+        image: docker:24.0.5
+        options: >-
+          --health-cmd "docker info"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 2376:2376
+        env:
+          DOCKER_TLS_CERTDIR: /certs
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: Start Docker daemon
+      run: |
+        sudo systemctl start docker
+        sudo usermod -a -G docker $USER
+        newgrp docker
+
+    - name: Run security tests
+      run: |
+        go test -v -timeout 10m ./tests/integration/security_test.go
+      env:
+        TESTCONTAINERS_RYUK_DISABLED: true
+        TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    
+    services:
+      docker:
+        image: docker:24.0.5
+        options: >-
+          --health-cmd "docker info"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 2376:2376
+        env:
+          DOCKER_TLS_CERTDIR: /certs
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: Start Docker daemon
+      run: |
+        sudo systemctl start docker
+        sudo usermod -a -G docker $USER
+        newgrp docker
+
+    - name: Run performance tests
+      run: |
+        go test -v -timeout 15m ./tests/integration/parallel_test.go -run TestParallelUserRegistration
+      env:
+        TESTCONTAINERS_RYUK_DISABLED: true
+        TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock 

@@ -12,7 +12,18 @@ import (
 )
 
 func TestEncryptionSecurity(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testencryption")
@@ -63,8 +74,18 @@ func TestEncryptionSecurity(t *testing.T) {
 }
 
 func TestTLSConnection(t *testing.T) {
-	// Test that we can establish a TLS connection.
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// If we get here without TLS errors, the connection is working.
 	// Try a simple operation to verify the connection.
@@ -85,7 +106,18 @@ func TestTLSConnection(t *testing.T) {
 }
 
 func TestTokenExpiration(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testexpiration")
@@ -121,7 +153,18 @@ func TestTokenExpiration(t *testing.T) {
 }
 
 func TestInputValidation(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Test registration with invalid email.
 	_, err := clients.UserClient.Register(context.Background(), &clientapi.RegisterRequest{
@@ -146,7 +189,18 @@ func TestInputValidation(t *testing.T) {
 }
 
 func TestConcurrentAccess(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testconcurrent")

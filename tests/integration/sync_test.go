@@ -17,7 +17,18 @@ func uniqueEmail(base string) string {
 }
 
 func TestSyncBetweenClients(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: register and login user.
 	email := uniqueEmail("testsync")
@@ -94,7 +105,18 @@ func TestSyncBetweenClients(t *testing.T) {
 }
 
 func TestMultiUserSync(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: create two users.
 	user1Email := uniqueEmail("syncuser1")
@@ -198,7 +220,18 @@ func TestMultiUserSync(t *testing.T) {
 }
 
 func TestDataConsistency(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: register and login user.
 	email := uniqueEmail("testconsistency")

@@ -11,7 +11,18 @@ import (
 )
 
 func TestDataCRUDOperations(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testdatacrud")
@@ -119,12 +130,23 @@ func TestDataCRUDOperations(t *testing.T) {
 			Token: token,
 			Id:    dataID,
 		})
-		require.Error(t, err) // Should fail because data was deleted.
+		require.Error(t, err) // Should fail as data is deleted.
 	})
 }
 
 func TestDataAccessControl(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: create two users.
 	user1Email := testutils.UniqueEmail("user1")
@@ -206,7 +228,18 @@ func TestDataAccessControl(t *testing.T) {
 }
 
 func TestDataTypes(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup isolated test environment with Testcontainers
+	env := testutils.SetupTestEnvironment(t)
+	defer env.Cleanup()
+
+	// Setup test server with containerized database
+	testutils.SetupTestServer(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with dynamic certificates
+	clients := testutils.SetupTestClients(t, env)
 
 	// Setup: register and login user.
 	email := testutils.UniqueEmail("testtypes")

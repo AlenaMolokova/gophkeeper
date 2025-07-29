@@ -37,7 +37,7 @@ func (s *DataServer) AddData(ctx context.Context, req *clientapi.AddDataRequest)
 	}
 
 	data := models.ConvertFromProto(req.Data)
-	id, err := s.storage.SaveData(ctx, userID, *data)
+	id, err := s.writer.SaveData(ctx, userID, *data)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to save data")
 	}
@@ -56,7 +56,7 @@ func (s *DataServer) GetData(ctx context.Context, req *clientapi.GetDataRequest)
 		return nil, err
 	}
 
-	data, err := s.storage.FindDataByID(ctx, userID, req.Id)
+	data, err := s.reader.FindDataByID(ctx, userID, req.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get data")
 	}
@@ -79,7 +79,7 @@ func (s *DataServer) EditData(ctx context.Context, req *clientapi.EditDataReques
 	}
 
 	data := models.ConvertFromProto(req.Data)
-	id, err := s.storage.EditData(ctx, userID, *data)
+	id, err := s.writer.EditData(ctx, userID, *data)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to edit data")
 	}
@@ -98,7 +98,7 @@ func (s *DataServer) DeleteData(ctx context.Context, req *clientapi.DeleteDataRe
 		return nil, err
 	}
 
-	err = s.storage.DeleteData(ctx, userID, req.Id)
+	err = s.writer.DeleteData(ctx, userID, req.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to delete data")
 	}

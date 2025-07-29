@@ -8,6 +8,7 @@ package applogic
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	clientcrypto "github.com/AlenaMolokova/gophkeeper/internal/client/crypto"
@@ -20,7 +21,7 @@ import (
 //
 // The function handles the complete registration flow and provides
 // the token needed for subsequent authenticated requests.
-func RegisterUser(ctx context.Context, userClient clientapi.UserServiceClient, email, password string) (string, error) {
+func RegisterUser(ctx context.Context, userClient UserServiceClientInterface, email, password string) (string, error) {
 	resp, err := userClient.Register(ctx, &clientapi.RegisterRequest{Email: email, Password: password})
 	if err != nil {
 		return "", err
@@ -34,7 +35,7 @@ func RegisterUser(ctx context.Context, userClient clientapi.UserServiceClient, e
 //
 // The function handles the complete authentication flow and provides
 // the token needed for subsequent authenticated requests.
-func LoginUser(ctx context.Context, userClient clientapi.UserServiceClient, email, password string) (string, error) {
+func LoginUser(ctx context.Context, userClient UserServiceClientInterface, email, password string) (string, error) {
 	resp, err := userClient.Login(ctx, &clientapi.LoginRequest{Email: email, Password: password})
 	if err != nil {
 		return "", err
@@ -49,27 +50,16 @@ func LoginUser(ctx context.Context, userClient clientapi.UserServiceClient, emai
 //
 // The function ensures that sensitive data is encrypted before transmission
 // and returns the unique data ID for future reference.
-func AddData(ctx context.Context, dataClient clientapi.DataServiceClient, token, dataType, payload string) (string, error) {
+func AddData(ctx context.Context, dataClient DataServiceClientInterface, token, dataType, payload string) (string, error) {
 	encPayload, err := clientcrypto.EncryptData([]byte(payload))
 	if err != nil {
 		return "", err
 	}
 
-	// Convert string dataType to DataType enum
-	var dt clientapi.DataType
-	switch dataType {
-	case "login":
-		dt = clientapi.DataType_DATA_TYPE_LOGIN
-	case "text":
-		dt = clientapi.DataType_DATA_TYPE_TEXT
-	case "binary":
-		dt = clientapi.DataType_DATA_TYPE_BINARY
-	case "card":
-		dt = clientapi.DataType_DATA_TYPE_CARD
-	case "otp":
-		dt = clientapi.DataType_DATA_TYPE_OTP
-	default:
-		dt = clientapi.DataType_DATA_TYPE_UNSPECIFIED
+	// Convert string dataType to DataType enum using centralized converter
+	dt, err := ConvertToDataType(dataType)
+	if err != nil {
+		return "", fmt.Errorf("invalid data type: %w", err)
 	}
 
 	resp, err := dataClient.AddData(ctx, &clientapi.AddDataRequest{
@@ -93,7 +83,7 @@ func AddData(ctx context.Context, dataClient clientapi.DataServiceClient, token,
 //
 // The function ensures that sensitive data is properly decrypted
 // for local use while maintaining the original data structure.
-func GetData(ctx context.Context, dataClient clientapi.DataServiceClient, token, id string) (*clientapi.Data, string, error) {
+func GetData(ctx context.Context, dataClient DataServiceClientInterface, token, id string) (*clientapi.Data, string, error) {
 	resp, err := dataClient.GetData(ctx, &clientapi.GetDataRequest{Token: token, Id: id})
 	if err != nil {
 		return nil, "", err
@@ -111,27 +101,16 @@ func GetData(ctx context.Context, dataClient clientapi.DataServiceClient, token,
 //
 // The function ensures that sensitive data is encrypted before transmission
 // and maintains data integrity by preserving the original data ID.
-func EditData(ctx context.Context, dataClient clientapi.DataServiceClient, token, id, dataType, payload string) (string, error) {
+func EditData(ctx context.Context, dataClient DataServiceClientInterface, token, id, dataType, payload string) (string, error) {
 	encPayload, err := clientcrypto.EncryptData([]byte(payload))
 	if err != nil {
 		return "", err
 	}
 
-	// Convert string dataType to DataType enum
-	var dt clientapi.DataType
-	switch dataType {
-	case "login":
-		dt = clientapi.DataType_DATA_TYPE_LOGIN
-	case "text":
-		dt = clientapi.DataType_DATA_TYPE_TEXT
-	case "binary":
-		dt = clientapi.DataType_DATA_TYPE_BINARY
-	case "card":
-		dt = clientapi.DataType_DATA_TYPE_CARD
-	case "otp":
-		dt = clientapi.DataType_DATA_TYPE_OTP
-	default:
-		dt = clientapi.DataType_DATA_TYPE_UNSPECIFIED
+	// Convert string dataType to DataType enum using centralized converter
+	dt, err := ConvertToDataType(dataType)
+	if err != nil {
+		return "", fmt.Errorf("invalid data type: %w", err)
 	}
 
 	resp, err := dataClient.EditData(ctx, &clientapi.EditDataRequest{
@@ -152,7 +131,7 @@ func EditData(ctx context.Context, dataClient clientapi.DataServiceClient, token
 // DeleteData removes data by ID from the server.
 // It sends a deletion request to the server for the specified data ID,
 // ensuring that the data is permanently removed from the server storage.
-func DeleteData(ctx context.Context, dataClient clientapi.DataServiceClient, token, id string) error {
+func DeleteData(ctx context.Context, dataClient DataServiceClientInterface, token, id string) error {
 	_, err := dataClient.DeleteData(ctx, &clientapi.DeleteDataRequest{Token: token, Id: id})
 	return err
 }

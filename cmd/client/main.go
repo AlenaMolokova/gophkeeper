@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	clientapplogic "github.com/AlenaMolokova/gophkeeper/internal/client/applogic"
+	clientauth "github.com/AlenaMolokova/gophkeeper/internal/client/auth"
 	clientcrypto "github.com/AlenaMolokova/gophkeeper/internal/client/crypto"
 	clientsync "github.com/AlenaMolokova/gophkeeper/internal/client/sync"
 	clienttui "github.com/AlenaMolokova/gophkeeper/internal/client/tui"
@@ -105,7 +106,8 @@ func executeWithConnection(operation func(context.Context, *ClientConnections) e
 	return operation(ctx, clients)
 }
 
-// handleAuthCommand handles register and login commands with common logic.
+// handleAuthCommand handles register and login commands with minimal logic.
+// It parses command line arguments and delegates business logic to use cases.
 func handleAuthCommand(command string) error {
 	cmd := flag.NewFlagSet(command, flag.ExitOnError)
 	email := cmd.String("email", "", "User email")
@@ -122,15 +124,18 @@ func handleAuthCommand(command string) error {
 	return executeWithConnection(func(ctx context.Context, clients *ClientConnections) error {
 		var token string
 		var err error
+
 		switch command {
 		case "register":
-			token, err = clientapplogic.RegisterUser(ctx, clients.UserClient, *email, *password)
+			registerUsecase := clientauth.NewRegisterUsecase(clients.UserClient)
+			token, err = registerUsecase.Execute(ctx, *email, *password)
 			if err != nil {
 				return fmt.Errorf("registration failed: %w", err)
 			}
 			fmt.Printf("User successfully registered. JWT: %s\n", token)
 		case "login":
-			token, err = clientapplogic.LoginUser(ctx, clients.UserClient, *email, *password)
+			loginUsecase := clientauth.NewLoginUsecase(clients.UserClient)
+			token, err = loginUsecase.Execute(ctx, *email, *password)
 			if err != nil {
 				return fmt.Errorf("login failed: %w", err)
 			}

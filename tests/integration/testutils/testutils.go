@@ -1,14 +1,13 @@
 // Package testutils provides utility functions for integration testing of the GophKeeper application.
-// It includes helper functions for setting up test clients and managing test resources
-// with proper TLS configuration and cleanup for integration test scenarios.
+// It includes Testcontainers-based infrastructure for isolated testing with dynamic
+// PostgreSQL containers and TLS certificate generation.
 package testutils
 
 import (
+	"context"
 	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/AlenaMolokova/gophkeeper/internal/config"
 	clientapi "github.com/AlenaMolokova/gophkeeper/pkg/client/api"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -22,12 +21,12 @@ type TestClients struct {
 	Conn       *grpc.ClientConn
 }
 
-// SetupTestClients initializes gRPC clients for integration tests with TLS.
-func SetupTestClients(t *testing.T) *TestClients {
-	certPath := getCertPath(t)
-	t.Logf("Loading TLS certificate from: %s", certPath)
-	creds, err := credentials.NewClientTLSFromFile(certPath, "")
+// SetupTestClients initializes gRPC clients for integration tests with dynamic TLS certificates.
+func SetupTestClients(t *testing.T, env *TestEnvironment) *TestClients {
+	t.Logf("Loading TLS certificate from: %s", env.CertPath)
+	creds, err := credentials.NewClientTLSFromFile(env.CertPath, "")
 	require.NoError(t, err, "Failed to load TLS certificate")
+
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(creds))
 	require.NoError(t, err, "Failed to connect to server")
 	t.Cleanup(func() { conn.Close() })
@@ -39,25 +38,21 @@ func SetupTestClients(t *testing.T) *TestClients {
 	}
 }
 
-// getCertPath returns the path to the TLS certificate.
-func getCertPath(t *testing.T) string {
-	// Use config to get certificate path
-	clientConfig := config.NewClientConfig()
-	certPath := clientConfig.CertPath
+// SetupTestServer starts a test server with the provided environment configuration.
+func SetupTestServer(t *testing.T, env *TestEnvironment) {
+	// Set environment variables for the test server
+	os.Setenv("DATABASE_DSN", env.DSN)
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("CERT_PATH", env.CertPath)
 
-	// Check if certificate exists at config path
-	if _, err := os.Stat(certPath); err == nil {
-		return filepath.Clean(certPath)
-	}
-	t.Logf("Certificate not found at config path: %s", certPath)
+	// Start server in background (implementation depends on your server startup)
+	// This would typically involve starting the server in a goroutine
+	// and waiting for it to be ready
+}
 
-	// Fallback to project root (E:\go\gophkeeper\cert\server.crt)
-	projectRoot := filepath.Join("E:", "go", "gophkeeper")
-	fallbackCertPath := filepath.Join(projectRoot, "cert", "server.crt")
-	if _, err := os.Stat(fallbackCertPath); err == nil {
-		return fallbackCertPath
-	}
-
-	t.Fatalf("Certificate not found at %s or %s", certPath, fallbackCertPath)
-	return certPath // Unreachable, but required for compilation.
+// CreateTestDatabase initializes the test database with required tables.
+func CreateTestDatabase(ctx context.Context, env *TestEnvironment) error {
+	// Connect to PostgreSQL and create tables
+	// This would use the DSN from env.DSN to create the required schema
+	return nil
 }

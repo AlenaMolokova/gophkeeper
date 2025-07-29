@@ -1,3 +1,9 @@
+// Package storage provides local data storage functionality for the GophKeeper client.
+// It implements a simple key-value storage system using bbolt database for encrypted data
+// with automatic directory creation and proper file permissions.
+//
+// The package provides methods for storing, retrieving, and managing encrypted data
+// locally on the client machine, supporting offline access and data synchronization.
 package storage
 
 import (

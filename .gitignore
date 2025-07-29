@@ -16,6 +16,9 @@ vendor/
 
 # Test coverage
 coverage.out
+
+# Testcontainers
+testcontainers.properties
 coverage
 
 # Log files

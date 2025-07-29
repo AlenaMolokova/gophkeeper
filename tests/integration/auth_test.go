@@ -11,7 +11,18 @@ import (
 )
 
 func TestUserRegistration(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup adaptive test environment (automatically chooses Testcontainers or fallback)
+	env := testutils.SetupTestEnvironmentAdaptive(t)
+	defer env.GetCleanup()()
+
+	// Setup test server with adaptive configuration
+	testutils.SetupTestServerAdaptive(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with adaptive configuration
+	clients := testutils.SetupTestClientsAdaptive(t, env)
 
 	email := testutils.UniqueEmail("testuserreg")
 	password := "testpassword123"
@@ -33,7 +44,18 @@ func TestUserRegistration(t *testing.T) {
 }
 
 func TestUserLogin(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup adaptive test environment
+	env := testutils.SetupTestEnvironmentAdaptive(t)
+	defer env.GetCleanup()()
+
+	// Setup test server with adaptive configuration
+	testutils.SetupTestServerAdaptive(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with adaptive configuration
+	clients := testutils.SetupTestClientsAdaptive(t, env)
 
 	email := testutils.UniqueEmail("testuserlogin")
 	password := "testpassword123"
@@ -69,7 +91,18 @@ func TestUserLogin(t *testing.T) {
 }
 
 func TestTokenValidation(t *testing.T) {
-	clients := testutils.SetupTestClients(t)
+	// Setup adaptive test environment
+	env := testutils.SetupTestEnvironmentAdaptive(t)
+	defer env.GetCleanup()()
+
+	// Setup test server with adaptive configuration
+	testutils.SetupTestServerAdaptive(t, env)
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
+
+	// Setup test clients with adaptive configuration
+	clients := testutils.SetupTestClientsAdaptive(t, env)
 
 	email := testutils.UniqueEmail("testtokenval")
 	password := "testpassword123"
